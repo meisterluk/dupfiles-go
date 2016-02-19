@@ -53,6 +53,10 @@ Compilation
      https://golang.org/doc/code.html
   2. Run "go install github.com/meisterluk/dupfiles-go"
 
+Backwards compatibility
+
+  Until the 1.0 release is hit, the API might change
+
 Pull requests
 
   I am very interested in any feedback and will accept
