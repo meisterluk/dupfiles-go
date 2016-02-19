@@ -23,6 +23,8 @@ func NewHashAlgorithm(conf *api.Config) (api.HashingAlgorithm, error) {
 
 	if norm == "sha256" {
 		return sha256hashing{}, nil
+	} else if norm == "sha512" {
+		return sha512hashing{}, nil
 	}
 
 	return nil, fmt.Errorf("Hash algorithm " + conf.HashAlgorithm + " not found")

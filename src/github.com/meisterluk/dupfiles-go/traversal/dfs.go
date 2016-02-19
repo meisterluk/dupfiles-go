@@ -2,6 +2,7 @@ package traversal
 
 import (
 	"io/ioutil"
+	"os"
 	"path"
 	"sync"
 
@@ -23,7 +24,7 @@ func dfsTraversing(conf *api.Config, src *api.Source, parent *api.Entry,
 
 	// folders: traverse recursively
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || entry.Mode()&os.ModeType != 0 {
 			continue
 		}
 

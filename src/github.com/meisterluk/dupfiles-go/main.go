@@ -12,13 +12,14 @@ import (
 
 func main() {
 	var conf api.Config
-	conf.HashAlgorithm = "sha256"
+	conf.HashAlgorithm = "sha512"
 	conf.HashSpec.Content = true
 	conf.HashSpec.Relpath = true
 
 	bases := make([]api.Source, 0, 5)
 
 	if len(os.Args)%2 == 0 {
+		log.Println("Usage: ./dupfiles <NAME1> <PATH1> [<NAME2> <PATH2>]+")
 		log.Fatal("Error: number of command-line arguments must be even")
 	}
 
@@ -52,9 +53,9 @@ func main() {
 		for eq := range eqChan {
 			fmt.Printf("{ ")
 			for _, e := range eq {
-				fmt.Printf(" %s:%s ", e.Base, e.Path)
+				fmt.Printf(" %s %s  ", e.Base, e.Path)
 			}
-			fmt.Printf(" }\n")
+			fmt.Printf("}\n")
 		}
 		done <- true
 	}()
