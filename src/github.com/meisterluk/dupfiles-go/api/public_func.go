@@ -5,4 +5,4 @@ package api
 // result as array of string to the out channel.
 //
 // This is the only public API function
-type _FindDuplicates func(conf Config, srcs []Source, out chan []string) error
+type FindDuplicates func(conf Config, srcs []Source, out chan [][2]string) error

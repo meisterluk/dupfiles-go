@@ -6,8 +6,7 @@ import (
 	"os"
 
 	"github.com/meisterluk/dupfiles-go/api"
-	"github.com/meisterluk/dupfiles-go/match"
-	"github.com/meisterluk/dupfiles-go/traversal"
+	"github.com/meisterluk/dupfiles-go/run"
 )
 
 // Main implements the main routine but is independent of os.Args
@@ -17,50 +16,45 @@ func Main(args []string) {
 	conf.HashSpec.Content = true
 	conf.HashSpec.Relpath = true
 
-	bases := make([]api.Source, 0, 5)
-
 	// create file system root instances
+	bases := make([]api.Source, 0, 5)
 	for i := 1; i < len(args); i = i + 2 {
 		bases = append(bases, api.Source{Path: args[i+1], Name: args[i]})
 	}
 
-	// get ready for traversal
-	trees := make([]api.Tree, 0, len(bases))
-	treePtrs := make([]*api.Tree, 0, 5)
-	for _, base := range bases {
-		t := api.Tree{}
-		trees = append(trees, t)
-		treePtrs = append(treePtrs, &t)
-		err := traversal.DFSTraverse(&conf, &base, &t)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	done := make(chan bool)
-	eqChan := make(chan []*api.Entry)
+	result := make(chan [][2]string)
+	smthg := false
 
 	go func() {
-		for eq := range eqChan {
+		for eq := range result {
 			fmt.Printf("{ ")
 			for _, e := range eq {
-				fmt.Printf(" %s %s  ", e.Base, e.Path)
+				fmt.Printf(" %s %s  ", e[0], e[1])
 			}
 			fmt.Printf("}\n")
+			smthg = true
 		}
 		done <- true
 	}()
 
-	err := match.Match(&conf, treePtrs, eqChan)
+	err := run.FindDuplicates(conf, bases, result)
 	if err != nil {
 		log.Fatal(err)
 	}
-	close(eqChan)
+
 	<-done
+	if !smthg {
+		fmt.Print("No equivalent nodes found in: ")
+		for i := 1; i < len(args); i = i + 2 {
+			fmt.Printf("%s ", args[i])
+		}
+		fmt.Println("")
+	}
 }
 
 func main() {
-	if os.Args[1] == "-v" || os.Args[1] == "--version" {
+	if len(os.Args) >= 2 && (os.Args[1] == "-v" || os.Args[1] == "--version") {
 		log.Println("version 0.1 basic")
 		os.Exit(0)
 	}

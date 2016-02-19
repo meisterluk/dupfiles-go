@@ -14,8 +14,9 @@ func (s *set) Has(key [api.HASHSIZE]byte) bool {
 	return s.data[key] == true
 }
 
-// Match takes a set of trees, determines duplicate nodes in it
-func Match(conf *api.Config, trees []*api.Tree, eqChan api.EqChannel) error {
+// UnorderedMatch takes a set of trees, determines duplicate nodes in it.
+// Results are unordered, hence {a, b} is returned instead of {a, b} and {b, a}.
+func UnorderedMatch(conf *api.Config, trees []*api.Tree, eqChan api.EqChannel) error {
 	knownSet := set{data: make(map[[api.HASHSIZE]byte]bool)}
 	for _, tree := range trees {
 		for hash, entry := range tree.Hashes {

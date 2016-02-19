@@ -11,4 +11,4 @@ type Traversing func(conf *Config, src *Source, root *Entry, out chan *Entry) er
 type Traverse func(conf *Config, src *Source, tr *Tree) error
 
 // Match takes Tree instances and determines equivalent file system entries
-type _Match func(conf *Config, trees []*Tree, eqChan EqChannel) error
+type Match func(conf *Config, trees []*Tree, eqChan EqChannel) error
