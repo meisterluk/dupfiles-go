@@ -18,6 +18,11 @@ func main() {
 
 	bases := make([]api.Source, 0, 5)
 
+	if os.Args[1] == "-v" || os.Args[1] == "--version" {
+		log.Println("version 0.1 basic")
+		os.Exit(0)
+	}
+
 	if len(os.Args)%2 == 0 {
 		log.Println("Usage: ./dupfiles <NAME1> <PATH1> [<NAME2> <PATH2>]+")
 		log.Fatal("Error: number of command-line arguments must be even")
