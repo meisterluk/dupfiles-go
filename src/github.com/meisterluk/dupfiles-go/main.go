@@ -10,7 +10,8 @@ import (
 	"github.com/meisterluk/dupfiles-go/traversal"
 )
 
-func main() {
+// Main implements the main routine but is independent of os.Args
+func Main(args []string) {
 	var conf api.Config
 	conf.HashAlgorithm = "sha512"
 	conf.HashSpec.Content = true
@@ -18,24 +19,9 @@ func main() {
 
 	bases := make([]api.Source, 0, 5)
 
-	if os.Args[1] == "-v" || os.Args[1] == "--version" {
-		log.Println("version 0.1 basic")
-		os.Exit(0)
-	}
-
-	if len(os.Args)%2 == 0 {
-		log.Println("Usage: ./dupfiles <NAME1> <PATH1> [<NAME2> <PATH2>]+")
-		log.Fatal("Error: number of command-line arguments must be even")
-	}
-
-	if len(os.Args) == 1 {
-		log.Print("usage: dupfiles <name> <path> [<name> <path>]*")
-		os.Exit(0)
-	}
-
 	// create file system root instances
-	for i := 1; i < len(os.Args); i = i + 2 {
-		bases = append(bases, api.Source{Path: os.Args[i+1], Name: os.Args[i]})
+	for i := 1; i < len(args); i = i + 2 {
+		bases = append(bases, api.Source{Path: args[i+1], Name: args[i]})
 	}
 
 	// get ready for traversal
@@ -71,4 +57,23 @@ func main() {
 	}
 	close(eqChan)
 	<-done
+}
+
+func main() {
+	if os.Args[1] == "-v" || os.Args[1] == "--version" {
+		log.Println("version 0.1 basic")
+		os.Exit(0)
+	}
+
+	if len(os.Args)%2 == 0 {
+		log.Println("Usage: ./dupfiles <NAME1> <PATH1> [<NAME2> <PATH2>]+")
+		log.Fatal("Error: number of command-line arguments must be even")
+	}
+
+	if len(os.Args) == 1 {
+		log.Print("usage: dupfiles <name> <path> [<name> <path>]*")
+		os.Exit(0)
+	}
+
+	Main(os.Args)
 }
