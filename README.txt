@@ -3,12 +3,12 @@ dupfiles-go
 
 :author:    meisterluk
 :license:   BSD 3-clause
-:version:   0.1 "basic"
+:version:   0.3.0 "first public release"
 
 Find equivalent nodes in a filesystem tree.
 See the project homepage for more information:
 
-  http://lukas-prokop.at/proj/dupfiles/index.html
+  http://lukas-prokop.at/proj/dupfiles/
 
 How to run it
 
@@ -33,15 +33,23 @@ Reference system: Thinkpad x220 tablet, Linux xubuntu 15.10, x86_64
 Performance
 
   Equivalence:
-    home directory: 127278 nodes, nodes of total size 110.34 MB
-    less than 1 second
+    directory:    131243 nodes (find ~ | wc -l)
+    total size:   56.34 MB (du --summarize ~)
+    runtime:      16 minutes (time dupfiles HOME1 ~ HOME2 ~)
+
+  Be aware that the most expensive routine (matching) is not
+  yet concurrent. Hence there is room for improvement which
+  is expected to be used soon.
 
 Memory
 
   Equivalence:
-    home directory: 127278 nodes, nodes of total size 110.34 MB
-    77560 bytes (= 76 KB) statically
-    4452616 bytes (= 4.2 MB) dynamically
+    directory:        131243 nodes
+    total size:       56.34 MB
+    static memory:    2 MB
+    [ size bin/dupfiles-go | cut -f4 ]
+    dynamic memory:   150 MB
+    [ /usr/bin/time -f '%MkB' dupfiles HOME1 ~ HOME2 ~ ]
 
 Dependencies
 
