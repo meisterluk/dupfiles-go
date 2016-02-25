@@ -12,5 +12,6 @@ type Entry struct {
 // Tree represents a parsed file system subtree
 type Tree struct {
 	Root   *Entry
+	Path   string
 	Hashes map[[HASHSIZE]byte]*Entry
 }

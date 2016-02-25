@@ -31,13 +31,13 @@ func (s sha256hashing) HashFile(spec api.HashingSpec, relPath string, digest []b
 	defer f.Close()
 
 	hashAlgo := sha256.New()
-	if spec.Content {
+	if spec.FileContent {
 		_, err = io.Copy(hashAlgo, f)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-	if spec.Relpath {
+	if spec.FileRelPath {
 		hashAlgo.Write([]byte(path.Base(relPath)))
 	}
 

@@ -27,7 +27,7 @@ func NewHashAlgorithm(conf *api.Config) (api.HashingAlgorithm, error) {
 		return sha512hashing{}, nil
 	}
 
-	return nil, fmt.Errorf("Hash algorithm " + conf.HashAlgorithm + " not found")
+	return nil, fmt.Errorf("Hash algorithm '" + conf.HashAlgorithm + "' not found")
 }
 
 // Given two hashes parent and child, compute the XOR of them.

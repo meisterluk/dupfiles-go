@@ -13,8 +13,8 @@ import (
 func Main(args []string) {
 	var conf api.Config
 	conf.HashAlgorithm = "sha512"
-	conf.HashSpec.Content = true
-	conf.HashSpec.Relpath = true
+	conf.HashSpec.FileContent = true
+	conf.HashSpec.FileRelPath = true
 
 	// create file system root instances
 	bases := make([]api.Source, 0, 5)

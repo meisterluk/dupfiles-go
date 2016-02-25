@@ -12,21 +12,28 @@ type Config struct {
 
 // HashingSpec specifies which attributes shall be considered in a hash
 type HashingSpec struct {
-	Content  bool
-	Perm     bool
-	Abspath  bool
-	Relpath  bool
-	Basename bool
-	Owner    bool
-	Group    bool
-	Fileext  bool
-	Size     bool
-	Mtime    bool
-	Atime    bool
+	FileContent    bool
+	FilePerm       bool
+	FileAbsPath    bool
+	FileRelPath    bool
+	FileBasename   bool
+	FileOwner      bool
+	FileGroup      bool
+	FileExt        bool
+	FileSize       bool
+	FileMtime      bool
+	FileAtime      bool
+	FolderBasename bool
 }
 
 // Source represents a file system node whose subtree will be retrieved
 type Source struct {
 	Path string
 	Name string
+}
+
+// Any checks whether any boolean flag of HashingSpec is set
+func (h *HashingSpec) Any() bool {
+	return (h.FileAbsPath || h.FileAtime || h.FileBasename || h.FileContent ||
+		h.FileExt || h.FileGroup || h.FileMtime || h.FileOwner || h.FilePerm)
 }

@@ -1,6 +1,7 @@
 package run
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/meisterluk/dupfiles-go/api"
@@ -14,11 +15,16 @@ import (
 // search tree bases and out is the channel the results will be sent to.
 // Be aware that the channel will be closed once all results have been found.
 func FindDuplicates(conf api.Config, srcs []api.Source, out chan [][2]string) error {
+	// check validity
+	if !conf.HashSpec.Any() {
+		return fmt.Errorf("Expected some boolean flag in HashSpec to be set. Actually all are false")
+	}
+
 	// get ready for traversal
 	trees := make([]api.Tree, 0, len(srcs))
 	treePtrs := make([]*api.Tree, 0, 5)
 	for _, s := range srcs {
-		t := api.Tree{}
+		t := api.Tree{Path: s.Path}
 		trees = append(trees, t)
 		treePtrs = append(treePtrs, &t)
 		err := traversal.DFSTraverse(&conf, &s, &t)

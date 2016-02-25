@@ -1,4 +1,4 @@
-package dupfiles
+package run
 
 import (
 	"log"
@@ -7,12 +7,15 @@ import (
 	"testing"
 
 	"github.com/meisterluk/dupfiles-go/api"
-	"github.com/meisterluk/dupfiles-go/run"
 )
 
 func findDup(t *testing.T, paths map[string]string, expected [][]string) {
 	// build sources
 	conf := api.Config{}
+	conf.HashAlgorithm = "sha512"
+	conf.HashSpec.FileContent = true
+	conf.HashSpec.FileRelPath = true
+	conf.HashSpec.FolderBasename = true
 	srcs := make([]api.Source, 0, 2)
 	for k, v := range paths {
 		src := api.Source{}
@@ -48,7 +51,7 @@ func findDup(t *testing.T, paths map[string]string, expected [][]string) {
 		}
 		done <- true
 	}()
-	err := run.FindDuplicates(conf, srcs, out)
+	err := FindDuplicates(conf, srcs, out)
 	if err != nil {
 		t.Error(err)
 	}
@@ -69,7 +72,28 @@ func findDup(t *testing.T, paths map[string]string, expected [][]string) {
 
 // TestTreeFig1 evaluates testcase fig1
 func TestTreeFig1(t *testing.T) {
-	paths := map[string]string{"HOME1": "/home/meisterluk", "HOME2": "/home/meisterluk"}
-	expected := [][]string{[]string{"HOME1:/home/meisterluk", "HOME2:/home/meisterluk"}}
+	paths := map[string]string{"Input1": "test_trees/01_fig1/input1", "Input2": "test_trees/01_fig1/input2"}
+	expected := [][]string{[]string{"Input1:folder1/folder2/folder3/file_A", "Input2:folder1/folder2/folder3/file_A"}}
+	findDup(t, paths, expected)
+}
+
+// TestTreeFig2 evaluates testcase fig2
+func TestTreeFig2(t *testing.T) {
+	paths := map[string]string{"Input1": "test_trees/02_fig2/input1", "Input2": "test_trees/02_fig2/input2"}
+	expected := [][]string{[]string{"Input1:", "Input2:"}}
+	findDup(t, paths, expected)
+}
+
+// TestTreeFig3 evaluates testcase fig3
+func TestTreeFig3(t *testing.T) {
+	paths := map[string]string{"Input1": "test_trees/03_fig3/input1", "Input2": "test_trees/03_fig3/input2"}
+	expected := [][]string{[]string{"Input1:folder1/folder2/folder3/file_B", "Input2:folder1/folder2/folder3/file_B"}}
+	findDup(t, paths, expected)
+}
+
+// TestTreeFig4 evaluates testcase fig3
+func TestTreeFig4(t *testing.T) {
+	paths := map[string]string{"Input1": "test_trees/04_fig4/input1", "Input2": "test_trees/04_fig4/input2"}
+	expected := [][]string{[]string{"Input1:folder1/folder2/folder3", "Input2:folder1/x/folder3"}}
 	findDup(t, paths, expected)
 }
