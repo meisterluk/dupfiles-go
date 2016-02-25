@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"sync"
 
 	"github.com/meisterluk/dupfiles-go/api"
 )
@@ -58,32 +59,39 @@ func DumpTrees(trees []*api.Tree) {
 // Results are unordered, hence {a, b} is returned instead of {a, b} and {b, a}.
 func UnorderedMatch(conf *api.Config, trees []*api.Tree, eqChan api.EqChannel) error {
 	knownSet := set{data: make(map[[api.HASHSIZE]byte]bool)}
+	var knownMutex sync.Mutex
+
 	for _, tree := range trees {
-		for hash, entry := range tree.Hashes {
-			if knownSet.Has(hash) {
-				continue
-			}
-			knownSet.Add(hash)
-			eqSet := make([]*api.Entry, 0, 3)
-			for _, other := range trees {
-				if tree == other {
+		go func(tree *api.Tree) {
+			for hash, entry := range tree.Hashes {
+				knownMutex.Lock()
+				if knownSet.Has(hash) {
+					knownMutex.Unlock()
 					continue
 				}
+				knownSet.Add(hash)
+				knownMutex.Unlock()
+				eqSet := make([]*api.Entry, 0, 3)
+				for _, other := range trees {
+					if tree == other {
+						continue
+					}
 
-				var hashesEquate, parentHashesEquate bool
-				e, hashesEquate := other.Hashes[hash]
-				if hashesEquate && e.Parent != nil && entry.Parent != nil {
-					parentHashesEquate = (e.Parent.Hash == entry.Parent.Hash)
+					var hashesEquate, parentHashesEquate bool
+					e, hashesEquate := other.Hashes[hash]
+					if hashesEquate && e.Parent != nil && entry.Parent != nil {
+						parentHashesEquate = (e.Parent.Hash == entry.Parent.Hash)
+					}
+					if hashesEquate && !parentHashesEquate {
+						eqSet = append(eqSet, e)
+					}
 				}
-				if hashesEquate && !parentHashesEquate {
-					eqSet = append(eqSet, e)
+				if len(eqSet) > 0 {
+					eqSet = append(eqSet, entry)
+					eqChan <- eqSet
 				}
 			}
-			if len(eqSet) > 0 {
-				eqSet = append(eqSet, entry)
-				eqChan <- eqSet
-			}
-		}
+		}(tree)
 	}
 	return nil
 }
