@@ -1,0 +1,120 @@
+README
+======
+
+link:https://img.shields.io/github/release/meisterluk/dupfiles-go.svg?style=flat-square[image:https://img.shields.io/github/release/meisterluk/dupfiles-go.svg?style=flat-square[Latest version]]
+link:https://godoc.org/github.com/meisterluk/dupfiles-go[image:https://godoc.org/github.com/meisterluk/dupfiles-go?status.svg[GoDoc]]
+link:LICENSE[image:https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square[Used LICENSE]]
+link:https://travis-ci.org/meisterluk/dupfiles-go[image:https://api.travis-ci.org/meisterluk/dupfiles-go.svg?branch=master[travis test result]]
+link:https://goreportcard.com/report/github.com/meisterluk/dupfiles-go[image:https://goreportcard.com/badge/github.com/meisterluk/dupfiles-go[Go Report Card]]
+
+author::
+  meisterluk
+version::
+  1.0.0 “useful”
+go namespace (API)::
+  dup "github.com/meisterluk/dupfiles-go/v1"
+go namespace (CLI)::
+  dup "github.com/meisterluk/dupfiles-go/cli"
+
+What is it about?
+-----------------
+
+We compute hashes for files and directories.
+This allows easy remote comparison of file system nodes.
+
+Why should I use it?
+--------------------
+
+Because you/your OS screwed up your filesystem.
+I have partial backups of my data, but lost track which backups are complete (and so on).
+Thus I want to identify duplicate nodes in these backups.
+
+Who should use it?
+------------------
+
+Anyone storing data on computers. System administrators in particular.
+
+How to install
+--------------
+
+1. Go to link:https://github.com/meisterluk/dupfiles-go/releases[Releases] to download the archive appropriate for your platform (in case of doubt: `windows_64-bit.tar.gz`)
+2. Decompress the archive and find `dupfiles-go.exe` (filename is `dupfiles-go` for UNIX-like platforms)
+3. Set the executable bit for the binary (Windows: right-click on the file and go the permissions, UNIX-like: `chmod a+x dupfiles-go`)
+4. Move `dupfiles-go.exe` into a folder mentioned in the `PATH` environment variable or extend `PATH` to the desired path (in case of doubt move it to `C:\Windows\System32`)
+5. Open a terminal (Windows: Press Ctrl-R, type “cmd.exe” and Enter) and run `dupfiles-go.exe version` (Windows) or `dupfiles-go` (UNIX-like)
+6. If the output starts with `dupfiles ` and some version number, then installation succeeded.
+
+On the other hand, if you install the link:https://golang.org/doc/install[Golang toolchain],
+you can build the dupfiles-go executable yourself. First, run `go get`:
+
+[source,bash]
+go get github.com/meisterluk/dupfiles-go
+
+and optionally start developing! 😊 You can build the executable using:
+
+[source,base]
+go build github.com/meisterluk/dupfiles-go/cli
+
+How to run
+----------
+
+For a comprehensive documentation, please take a look at the link:https://github.com/meisterluk/dupfiles-go/tree/master/doc[design paper].
+For quickstart examples, you have these options:
+
+1. `dupfiles report .` generates a report for the current directory. Creates a `report.fstree` file.
+2. `dupfiles report .. -o parent.fstree` generates a report for the parent directory. Creates a `parent.fstree` file.
+3. `dupfiles find report.dup parent.fstree` describes the differences between both directories. It will describe the current directory as occuring in the parent directory.
+
+Or you can compute the hash value of one specific directory:
+
+1. `dupfiles hash .`
+
+How to call
+-----------
+
+TODO
+
+[source,go]
+----
+TODO
+----
+
+As you can see, I have bound the `v1` API import to the alias `dup` which is best practice.
+
+Performance
+-----------
+
+TODO
+
+Memory usage
+------------
+
+TODO
+
+Dependencies
+------------
+
+None.
+
+Source Code
+-----------
+
+The source code is available at link:https://github.com/meisterluk/dupfiles-go[Github].
+
+License
+-------
+
+See link:LICENSE[the LICENSE file] (Hint: BSD 3-clause license).
+
+Changelog
+---------
+
+1.0.0 “useful”, TODO::
+  report file standarized, CLI standardized
+0.0.3 “first public release”, 2016/02/25::
+  computing hash value per given node, shows duplicates
+
+Issues
+------
+
+Please report any issues on the link:https://github.com/meisterluk/dupfiles-go/issues[Github issues page].
