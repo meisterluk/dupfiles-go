@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// CLI command parameters
+// HashCommand defines the CLI command parameters
 type HashCommand struct {
 	BaseNode             string   `json:"basenode"`
 	BFS                  bool     `json:"bfs"`
@@ -18,13 +19,14 @@ type HashCommand struct {
 	ExcludeTree          []string `json:"exclude-tree"`
 	BasenameMode         bool     `json:"basename-mode"`
 	EmptyMode            bool     `json:"empty-mode"`
+	Workers              int      `json:"workers"`
 	ConfigOutput         bool     `json:"config"`
 	JSONOutput           bool     `json:"json"`
 	Help                 bool     `json:"help"`
 }
 
-// kingpin CLI arguments
-type CLIHashCommand struct {
+// cliHashCommand defines the CLI arguments as kingpin requires them
+type cliHashCommand struct {
 	cmd                  *kingpin.CmdClause
 	BaseNode             *string
 	BFS                  *bool
@@ -36,13 +38,14 @@ type CLIHashCommand struct {
 	ExcludeTree          *[]string
 	BasenameMode         *bool
 	EmptyMode            *bool
+	Workers              *int
 	ConfigOutput         *bool
 	JSONOutput           *bool
 	Help                 *bool
 }
 
-func NewCLIHashCommand(app *kingpin.Application) *CLIHashCommand {
-	c := new(CLIHashCommand)
+func newCLIHashCommand(app *kingpin.Application) *cliHashCommand {
+	c := new(cliHashCommand)
 	c.cmd = app.Command("hash", "Give the hash value of an individual node.")
 
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
@@ -55,13 +58,14 @@ func NewCLIHashCommand(app *kingpin.Application) *CLIHashCommand {
 	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings()
 	c.BasenameMode = c.cmd.Flag("basename-mode", "basename mode (thus hashes encode structure)").Bool()
 	c.EmptyMode = c.cmd.Flag("empty-mode", "empty mode (thus hashes match tools like md5sum)").Bool()
+	c.Workers = c.cmd.Flag("workers", "number of concurrent traversal units").Int()
 	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
 	c.JSONOutput = c.cmd.Flag("json", "return output as JSON, not as plain text").Bool()
 
 	return c
 }
 
-func (c *CLIHashCommand) Validate() (*HashCommand, error) {
+func (c *cliHashCommand) Validate() (*HashCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {
 		return nil, fmt.Errorf("basenode must not be empty")
@@ -94,6 +98,7 @@ func (c *CLIHashCommand) Validate() (*HashCommand, error) {
 	cmd.BasenameMode = *c.BasenameMode
 	cmd.EmptyMode = *c.EmptyMode
 	cmd.ConfigOutput = *c.ConfigOutput
+	cmd.Workers = *c.Workers
 	cmd.JSONOutput = *c.JSONOutput
 	cmd.Help = false
 
@@ -114,8 +119,20 @@ func (c *CLIHashCommand) Validate() (*HashCommand, error) {
 	if envToBool("DUPFILES_EMPTY_MODE") && !cmd.BasenameMode {
 		cmd.EmptyMode = true
 	}
+	if cmd.Workers == 0 {
+		if w, ok := envToInt("DUPFILES_WORKERS"); ok {
+			cmd.Workers = w
+		} else {
+			cmd.Workers = runtime.NumCPU()
+		}
+	}
 	if envToBool("DUPFILES_JSON") {
 		cmd.JSONOutput = true
+	}
+
+	// validity check 2
+	if cmd.Workers <= 0 {
+		return nil, fmt.Errorf("expected --workers to be positive integer, is %d", cmd.Workers)
 	}
 
 	return cmd, nil

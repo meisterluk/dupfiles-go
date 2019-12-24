@@ -4,23 +4,23 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// CLI command parameters
-type versionCommand struct {
+// VersionCommand defines the CLI command parameters
+type VersionCommand struct {
 	ConfigOutput bool
 	JSONOutput   bool
 	Help         bool
 }
 
-// kingpin CLI arguments
-type cliversionCommand struct {
+// cliVersionCommand defines the CLI arguments as kingpin requires them
+type cliVersionCommand struct {
 	cmd          *kingpin.CmdClause
 	ConfigOutput *bool
 	JSONOutput   *bool
 	Help         *bool
 }
 
-func newCLIversionCommand(app *kingpin.Application) *cliversionCommand {
-	c := new(cliversionCommand)
+func newCLIVersionCommand(app *kingpin.Application) *cliVersionCommand {
+	c := new(cliVersionCommand)
 	c.cmd = app.Command("version", "Print implementation version, license and author. Exit code is always 0.")
 
 	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
@@ -29,12 +29,12 @@ func newCLIversionCommand(app *kingpin.Application) *cliversionCommand {
 	return c
 }
 
-func (c *cliversionCommand) Validate() (*versionCommand, error) {
+func (c *cliVersionCommand) Validate() (*VersionCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	// (nothing.)
 
-	// migrate cliversionCommand to versionCommand
-	cmd := new(versionCommand)
+	// migrate cliVersionCommand to versionCommand
+	cmd := new(VersionCommand)
 	cmd.ConfigOutput = *c.ConfigOutput
 	cmd.JSONOutput = *c.JSONOutput
 

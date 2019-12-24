@@ -4,7 +4,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// CLI command parameters
+// HashAlgosCommand defines the CLI command parameters
 type HashAlgosCommand struct {
 	CheckSupport string `json:"check-support"`
 	ConfigOutput bool   `json:"config"`
@@ -12,8 +12,8 @@ type HashAlgosCommand struct {
 	Help         bool   `json:"help"`
 }
 
-// kingpin CLI arguments
-type CLIHashAlgosCommand struct {
+// cliHashAlgosCommand defines the CLI arguments as kingpin requires them
+type cliHashAlgosCommand struct {
 	cmd          *kingpin.CmdClause
 	CheckSupport *string
 	ConfigOutput *bool
@@ -21,8 +21,8 @@ type CLIHashAlgosCommand struct {
 	Help         *bool
 }
 
-func NewCLIHashAlgosCommand(app *kingpin.Application) *CLIHashAlgosCommand {
-	c := new(CLIHashAlgosCommand)
+func newCLIHashAlgosCommand(app *kingpin.Application) *cliHashAlgosCommand {
+	c := new(cliHashAlgosCommand)
 	c.cmd = app.Command("hashalgos", "List supported hash algorithms.")
 
 	c.CheckSupport = c.cmd.Flag("check-support", "exit code 1 indicates that the given hashalgo is unsupported").String()
@@ -32,7 +32,7 @@ func NewCLIHashAlgosCommand(app *kingpin.Application) *CLIHashAlgosCommand {
 	return c
 }
 
-func (c *CLIHashAlgosCommand) Validate() (*HashAlgosCommand, error) {
+func (c *cliHashAlgosCommand) Validate() (*HashAlgosCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	// (nothing.)
 

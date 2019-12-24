@@ -6,7 +6,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// CLI command parameters
+// StatsCommand defines the CLI command parameters
 type StatsCommand struct {
 	Report       string `json:"report"`
 	ConfigOutput bool   `json:"config"`
@@ -14,8 +14,8 @@ type StatsCommand struct {
 	Help         bool   `json:"help"`
 }
 
-// kingpin CLI arguments
-type CLIStatsCommand struct {
+// cliStatsCommand defines the CLI arguments as kingpin requires them
+type cliStatsCommand struct {
 	cmd          *kingpin.CmdClause
 	Report       *string
 	ConfigOutput *bool
@@ -23,8 +23,8 @@ type CLIStatsCommand struct {
 	Help         *bool
 }
 
-func NewCLIStatsCommand(app *kingpin.Application) *CLIStatsCommand {
-	c := new(CLIStatsCommand)
+func newCLIStatsCommand(app *kingpin.Application) *cliStatsCommand {
+	c := new(cliStatsCommand)
 	c.cmd = app.Command("stats", "Prints some statistics about filesystem nodes based on a report.")
 
 	c.Report = c.cmd.Arg("report", "report to consider").Required().String()
@@ -34,7 +34,7 @@ func NewCLIStatsCommand(app *kingpin.Application) *CLIStatsCommand {
 	return c
 }
 
-func (c *CLIStatsCommand) Validate() (*StatsCommand, error) {
+func (c *cliStatsCommand) Validate() (*StatsCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	if *c.Report == "" {
 		return nil, fmt.Errorf("One report must be specified")

@@ -36,9 +36,8 @@ func walkBFS(baseNode string, ignorePermErrors bool, excludeFilename []string, e
 	if err != nil {
 		if isPermissionError(err) && ignorePermErrors {
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	dirs := make([]string, 0, 8)
@@ -144,9 +143,8 @@ func Walk(baseNode string, bfs bool, ignorePermErrors bool, excludeFilename []st
 	if err != nil {
 		if ignorePermErrors && isPermissionError(err) {
 			return nil
-		} else {
-			return err
 		}
+		return err
 	} else if !fileInfo.IsDir() {
 		if contains(excludeFilename, baseNode) {
 			return nil

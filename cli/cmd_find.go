@@ -7,7 +7,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// CLI command parameters
+// FindCommand defines the CLI command parameters
 type FindCommand struct {
 	Reports          []string `json:"reports"`
 	Strategy         []string `json:"strategy"`
@@ -19,8 +19,8 @@ type FindCommand struct {
 	Help             bool     `json:"help"`
 }
 
-// kingpin CLI arguments
-type CLIFindCommand struct {
+// cliFindCommand defined the CLI arguments as kingpin requires them
+type cliFindCommand struct {
 	cmd              *kingpin.CmdClause
 	Reports          *[]string
 	Strategy         *string
@@ -32,8 +32,8 @@ type CLIFindCommand struct {
 	Help             *bool
 }
 
-func NewCLIFindCommand(app *kingpin.Application) *CLIFindCommand {
-	c := new(CLIFindCommand)
+func newCLIFindCommand(app *kingpin.Application) *cliFindCommand {
+	c := new(cliFindCommand)
 	c.cmd = app.Command("find", "Finds differences in report files.")
 
 	c.Reports = c.cmd.Arg("reports", "reports to consider").Required().Strings()
@@ -47,7 +47,7 @@ func NewCLIFindCommand(app *kingpin.Application) *CLIFindCommand {
 	return c
 }
 
-func (c *CLIFindCommand) Validate() (*FindCommand, error) {
+func (c *cliFindCommand) Validate() (*FindCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	if len(*c.Reports) == 0 {
 		return nil, fmt.Errorf("At least one report is required")

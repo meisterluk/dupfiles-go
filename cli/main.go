@@ -6,17 +6,17 @@ import (
 	"os"
 	"sync"
 
-	"github.com/meisterluk/dupfiles/internals"
+	"github.com/meisterluk/dupfiles-go/internals"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var app *kingpin.Application
-var report *CLIReportCommand
-var find *CLIFindCommand
-var stats *CLIStatsCommand
-var hash *CLIHashCommand
-var hashAlgos *CLIHashAlgosCommand
-var version *cliversionCommand
+var report *cliReportCommand
+var find *cliFindCommand
+var stats *cliStatsCommand
+var hash *cliHashCommand
+var hashAlgos *cliHashAlgosCommand
+var version *cliVersionCommand
 
 const usageTemplate = `{{define "FormatCommand"}}\
 {{if .FlagSummary}} {{.FlagSummary}}{{end}}\
@@ -84,7 +84,7 @@ type errorResponse struct {
 }
 
 func (e *errorResponse) Print() int {
-	if JSONOutput() {
+	if jsonOutput() {
 		fmt.Fprintf(os.Stderr, "%s\n", e.JSON())
 	} else {
 		fmt.Fprintf(os.Stderr, "%s\n", e.String())
@@ -111,18 +111,18 @@ func init() {
 	app.HelpFlag.Short('h')
 
 	// if --json, show help as JSON
-	if JSONOutput() {
+	if jsonOutput() {
 		app.UsageTemplate(usageTemplate)
 	} else {
 		app.UsageTemplate(kingpin.CompactUsageTemplate)
 	}
 
-	report = NewCLIReportCommand(app)
-	find = NewCLIFindCommand(app)
-	stats = NewCLIStatsCommand(app)
-	hash = NewCLIHashCommand(app)
-	hashAlgos = NewCLIHashAlgosCommand(app)
-	version = newCLIversionCommand(app)
+	report = newCLIReportCommand(app)
+	find = newCLIFindCommand(app)
+	stats = newCLIStatsCommand(app)
+	hash = newCLIHashCommand(app)
+	hashAlgos = newCLIHashAlgosCommand(app)
+	version = newCLIVersionCommand(app)
 }
 
 func main() {
@@ -139,9 +139,6 @@ func main() {
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
-
-		// TODO: make it a CLI argument
-		workers := defaultNumberOfWorkers()
 
 		// config output
 		if reportSettings.ConfigOutput {
@@ -170,12 +167,12 @@ func main() {
 		// walk and write tail lines
 		// TODO: is this code goroutine-safe?
 		var wg sync.WaitGroup
-		pathChan := make(chan string, workers)
+		pathChan := make(chan string, reportSettings.Workers)
 		stop := false
 		var anyError error
 
-		wg.Add(workers)
-		for w := 0; w < workers; w++ {
+		wg.Add(reportSettings.Workers)
+		for w := 0; w < reportSettings.Workers; w++ {
 			go func() {
 				// fetch Hash instance
 				hash, err := internals.HashForHashAlgo(reportSettings.HashAlgorithm)
