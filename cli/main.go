@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 
@@ -171,6 +172,9 @@ func main() {
 		stop := false
 		var anyError error
 
+		// TODO start reportSettings.Workers workers receiving
+		//   * paths, consume them, generate hashes
+
 		wg.Add(reportSettings.Workers)
 		for w := 0; w < reportSettings.Workers; w++ {
 			go func() {
@@ -207,8 +211,8 @@ func main() {
 			reportSettings.BaseNode,
 			reportSettings.BFS,
 			reportSettings.IgnorePermErrors,
-			reportSettings.ExcludeFilename,
-			reportSettings.ExcludeFilenameRegex,
+			reportSettings.ExcludeBasename,
+			reportSettings.ExcludeBasenameRegex,
 			reportSettings.ExcludeTree,
 			pathChan,
 		)
@@ -248,18 +252,64 @@ func main() {
 			kingpin.FatalUsage(err.Error())
 		}
 
-		b, err := json.Marshal(hashSettings)
-		if err != nil {
-			fmt.Println("error:", err)
-		}
-		fmt.Println(string(b))
-
-		hash, err := internals.HashForHashAlgo(hashSettings.HashAlgorithm)
+		fileinfo, err := os.Stat(hashSettings.BaseNode)
 		if err != nil {
 			handleError(err.Error(), 1, hashSettings.JSONOutput)
 		}
-		hash.ReadFile(hashSettings.BaseNode)
-		fmt.Println(hash.HexDigest())
+
+		if fileinfo.IsDir() {
+			// generate fsstats concurrently
+			statsChan := make(chan internals.Statistics)
+			go internals.GenerateStatistics(hashSettings.BaseNode, hashSettings.IgnorePermErrors, hashSettings.ExcludeBasename, hashSettings.ExcludeBasenameRegex, hashSettings.ExcludeTree, statsChan)
+
+			// pick hash instance
+			hash, err := internals.HashForHashAlgo(hashSettings.HashAlgorithm)
+			if err != nil {
+				handleError(err.Error(), 1, hashSettings.JSONOutput)
+			}
+
+			stats := <-statsChan
+			log.Println(stats.String())
+
+			/*hashMe(hashSettings.BaseNode, hashSettings.BFS, hashSettings.DFS, hashSettings.IgnorePermErrors, hashSettings.HashAlgorithm, hashSettings.)
+
+
+			cmd                  *kingpin.CmdClause
+			BaseNode             *string
+			BFS                  *bool
+			DFS                  *bool
+			IgnorePermErrors     *bool
+			HashAlgorithm        *string
+			ExcludeBasename      *[]string
+			ExcludeBasenameRegex *[]string
+			ExcludeTree          *[]string
+			BasenameMode         *bool
+			EmptyMode            *bool
+			Workers              *int
+			ConfigOutput         *bool
+			JSONOutput           *bool
+			Help                 *bool
+
+
+
+			b, err := json.Marshal(hashSettings)
+			if err != nil {
+				handleError(err.Error(), 2, hashSettings.JSONOutput)
+				return
+			}
+			fmt.Println(string(b))*/
+
+			hash.ReadFile(hashSettings.BaseNode)
+			fmt.Println(hash.HexDigest())
+		} else {
+			// NOTE in this case, we don't generate fsstats
+			hash, err := internals.HashForHashAlgo(hashSettings.HashAlgorithm)
+			if err != nil {
+				handleError(err.Error(), 1, hashSettings.JSONOutput)
+			}
+			hash.ReadFile(hashSettings.BaseNode)
+			fmt.Println(hash.HexDigest())
+		}
 
 	case hashAlgos.cmd.FullCommand():
 		hashAlgosSettings, err := hashAlgos.Validate()

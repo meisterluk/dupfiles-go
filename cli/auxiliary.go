@@ -13,6 +13,7 @@ type jsonError struct {
 	ExitCode int    `json:"code"`
 }
 
+// handleError prints the error in the appropriate format
 func handleError(msg string, exitCode int, jsonOutput bool) {
 	if jsonOutput {
 		jErr := jsonError{msg, exitCode}
@@ -29,6 +30,7 @@ func handleError(msg string, exitCode int, jsonOutput bool) {
 	os.Exit(exitCode)
 }
 
+// envOr returns either environment variable envKey (if non-empty) or the default Value
 func envOr(envKey, defaultValue string) string {
 	val, ok := os.LookupEnv(envKey)
 	if !ok || val == "" {
@@ -37,11 +39,13 @@ func envOr(envKey, defaultValue string) string {
 	return envKey
 }
 
+// envToBool returns environment variable envKey considered as boolean value
 func envToBool(envKey string) bool {
 	val, ok := os.LookupEnv(envKey)
 	return (ok && val == "1" || ok && strings.ToLower(val) == "true")
 }
 
+// envToInt returns environment variable envKey considered as integer value
 func envToInt(envKey string) (int, bool) {
 	val, ok := os.LookupEnv(envKey)
 	if !ok {
@@ -54,6 +58,7 @@ func envToInt(envKey string) (int, bool) {
 	return int(i), true
 }
 
+// Was the JSON output format requested?
 func jsonOutput() bool {
 	for _, arg := range os.Args[1:] {
 		if arg == "--json" {

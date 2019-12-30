@@ -14,8 +14,8 @@ type HashCommand struct {
 	DFS                  bool     `json:"dfs"`
 	IgnorePermErrors     bool     `json:"ignore-perm-errors"`
 	HashAlgorithm        string   `json:"hash-algorithm"`
-	ExcludeFilename      []string `json:"exclude-filename"`
-	ExcludeFilenameRegex []string `json:"exclude-filename-regex"`
+	ExcludeBasename      []string `json:"exclude-basename"`
+	ExcludeBasenameRegex []string `json:"exclude-basename-regex"`
 	ExcludeTree          []string `json:"exclude-tree"`
 	BasenameMode         bool     `json:"basename-mode"`
 	EmptyMode            bool     `json:"empty-mode"`
@@ -33,8 +33,8 @@ type cliHashCommand struct {
 	DFS                  *bool
 	IgnorePermErrors     *bool
 	HashAlgorithm        *string
-	ExcludeFilename      *[]string
-	ExcludeFilenameRegex *[]string
+	ExcludeBasename      *[]string
+	ExcludeBasenameRegex *[]string
 	ExcludeTree          *[]string
 	BasenameMode         *bool
 	EmptyMode            *bool
@@ -53,8 +53,8 @@ func newCLIHashCommand(app *kingpin.Application) *cliHashCommand {
 	c.BFS = c.cmd.Flag("bfs", "apply breadth-first search for file system").Bool()
 	c.IgnorePermErrors = c.cmd.Flag("ignore-perm-errors", "ignore permission errors and continue traversal").Bool()
 	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(envOr("DUPFILES_HASH_ALGORITHM", "fnv-1a-128")).Short('a').String()
-	c.ExcludeFilename = c.cmd.Flag("exclude-filename", "any file with this particular filename is ignored").Strings()
-	c.ExcludeFilenameRegex = c.cmd.Flag("exclude-filename-regex", "exclude files with name matching given POSIX regex").Strings()
+	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
+	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
 	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings()
 	c.BasenameMode = c.cmd.Flag("basename-mode", "basename mode (thus hashes encode structure)").Bool()
 	c.EmptyMode = c.cmd.Flag("empty-mode", "empty mode (thus hashes match tools like md5sum)").Bool()
@@ -82,8 +82,8 @@ func (c *cliHashCommand) Validate() (*HashCommand, error) {
 
 	// migrate CLIHashCommand to HashCommand
 	cmd := new(HashCommand)
-	cmd.ExcludeFilename = make([]string, 0)
-	cmd.ExcludeFilenameRegex = make([]string, 0)
+	cmd.ExcludeBasename = make([]string, 0)
+	cmd.ExcludeBasenameRegex = make([]string, 0)
 	cmd.ExcludeTree = make([]string, 0)
 
 	cmd.BaseNode = *c.BaseNode
@@ -92,8 +92,8 @@ func (c *cliHashCommand) Validate() (*HashCommand, error) {
 	cmd.IgnorePermErrors = *c.IgnorePermErrors
 	cmd.HashAlgorithm = *c.HashAlgorithm
 
-	copy(cmd.ExcludeFilename, *c.ExcludeFilename)
-	copy(cmd.ExcludeFilenameRegex, *c.ExcludeFilenameRegex)
+	copy(cmd.ExcludeBasename, *c.ExcludeBasename)
+	copy(cmd.ExcludeBasenameRegex, *c.ExcludeBasenameRegex)
 	copy(cmd.ExcludeTree, *c.ExcludeTree)
 	cmd.BasenameMode = *c.BasenameMode
 	cmd.EmptyMode = *c.EmptyMode

@@ -8,11 +8,13 @@ import (
 	"os"
 )
 
+// CRC64 implements the cyclic redundancy check invented by W. Wesley Peterson (1961)
 type CRC64 struct {
 	h   hash.Hash64
 	sum uint64
 }
 
+// NewCRC64 defines returns a properly initialized CRC64 instance
 func NewCRC64() *CRC64 {
 	crc64Table := crc64.MakeTable(crc64.ISO)
 
@@ -22,10 +24,12 @@ func NewCRC64() *CRC64 {
 	return c
 }
 
+// Size returns the number of bytes of the hashsum
 func (c *CRC64) Size() int {
 	return c.h.Size()
 }
 
+// ReadFile provides an interface to update the hash state with the content of an entire file
 func (c *CRC64) ReadFile(filepath string) error {
 	// open/close file
 	fd, err := os.Open(filepath)
@@ -44,15 +48,19 @@ func (c *CRC64) ReadFile(filepath string) error {
 	return nil
 }
 
+// ReadBytes provides an interface to update the hash state with individual bytes
 func (c *CRC64) ReadBytes(data []byte) error {
 	_, err := c.h.Write(data)
 	return err
 }
 
+// Reset resets the hash state to its initial state.
+// After this call functions like `ReadFile` or `ReadBytes` can be called.
 func (c *CRC64) Reset() {
 	c.h.Reset()
 }
 
+// Digest returns the digest resulting from the hash state
 func (c *CRC64) Digest() []byte {
 	return []byte{
 		byte(c.sum >> 56),
@@ -66,10 +74,13 @@ func (c *CRC64) Digest() []byte {
 	}
 }
 
+// HexDigest returns the hash state digest encoded in a hexadecimal string
 func (c *CRC64) HexDigest() string {
 	return hex.EncodeToString(c.Digest())
 }
 
+// HashAlgorithm returns the hash algorithm's name
+// in accordance with the dupfiles design document
 func (c *CRC64) HashAlgorithm() string {
 	return "crc64"
 }

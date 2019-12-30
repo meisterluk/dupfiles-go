@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 )
 
+// Hash is a custom interface to define operations
+// a hash algorithm needs to support to include it in dupfiles
 type Hash interface {
 	// returns number of bytes of the digest
 	Size() int
@@ -23,6 +25,8 @@ type Hash interface {
 	HashAlgorithm() string
 }
 
+// HashForHashAlgo returns a Hash instance of a given type
+// determined by the string argument.
 func HashForHashAlgo(hashAlgo string) (Hash, error) {
 	switch hashAlgo {
 	case "crc64":
@@ -57,6 +61,8 @@ func HashForHashAlgo(hashAlgo string) (Hash, error) {
 	return NewCRC64(), fmt.Errorf(`unknown hash algorithm '%s'`, hashAlgo)
 }
 
+// HashOneNonDirectory returns (digest, file node type, file size, error)
+// after hashing a node which is not a directory.
 func HashOneNonDirectory(filePath string, hash Hash, basenameMode bool) ([]byte, byte, uint64, error) {
 	fileInfo, err := os.Stat(filePath)
 	size := uint64(fileInfo.Size())
@@ -99,6 +105,8 @@ func HashOneNonDirectory(filePath string, hash Hash, basenameMode bool) ([]byte,
 	return hash.Digest(), 'X', size, fmt.Errorf(`unknown file type at path '%s'`, filePath)
 }
 
+// HashTree takes a base node and determines hashes of its recursive directory tree.
+// Hash results are reported through the provided channel.
 func HashTree(baseNode string, bfs, basenameMode bool, hashAlgo string,
 	excludeFilename []string, excludeFilenameRegex []string, excludeTree []string,
 	out chan ReportTailLine) error {

@@ -63,19 +63,19 @@ func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 		}
 
 		data.TotalByteSize += uint64(stat.Size())
-		data.TotalEntries += 1
+		data.TotalEntries++
 
 		switch classify(stat) {
 		case 'C':
-			data.CountDeviceFile += 1
+			data.CountDeviceFile++
 		case 'F':
-			data.CountFiles += 1
+			data.CountFiles++
 		case 'L':
-			data.CountLink += 1
+			data.CountLink++
 		case 'P':
-			data.CountFIFOPipe += 1
+			data.CountFIFOPipe++
 		case 'S':
-			data.CountUNIXDomainSocket += 1
+			data.CountUNIXDomainSocket++
 		case 'X':
 			return fmt.Errorf(`Unknown node type for %s`, baseNode)
 		}
@@ -83,9 +83,9 @@ func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 
 		// is a directory
 	} else if err == nil {
-		data.TotalEntries += 1
-		data.CountDirectory += 1
-		depth += 1
+		data.TotalEntries++
+		data.CountDirectory++
+		depth++
 
 		if depth > data.MaxDepth {
 			data.MaxDepth = depth
