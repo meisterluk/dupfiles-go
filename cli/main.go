@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -207,7 +208,7 @@ func main() {
 			}()
 		}
 
-		err = internals.Walk(
+		/*err = internals.Walk(
 			reportSettings.BaseNode,
 			reportSettings.BFS,
 			reportSettings.IgnorePermErrors,
@@ -215,7 +216,7 @@ func main() {
 			reportSettings.ExcludeBasenameRegex,
 			reportSettings.ExcludeTree,
 			pathChan,
-		)
+		)*/
 		wg.Wait()
 		if anyError != nil {
 			handleError(anyError.Error(), 2, reportSettings.JSONOutput)
@@ -252,6 +253,17 @@ func main() {
 			kingpin.FatalUsage(err.Error())
 		}
 
+		if hashSettings.ConfigOutput {
+			// config output is printed in JSON independent of hashSettings.JSONOutput
+			b, err := json.Marshal(hashSettings)
+			if err != nil {
+				handleError(err.Error(), 2, hashSettings.JSONOutput)
+				return
+			}
+			fmt.Println(string(b))
+			return
+		}
+
 		fileinfo, err := os.Stat(hashSettings.BaseNode)
 		if err != nil {
 			handleError(err.Error(), 1, hashSettings.JSONOutput)
@@ -259,48 +271,36 @@ func main() {
 
 		if fileinfo.IsDir() {
 			// generate fsstats concurrently
-			statsChan := make(chan internals.Statistics)
-			go internals.GenerateStatistics(hashSettings.BaseNode, hashSettings.IgnorePermErrors, hashSettings.ExcludeBasename, hashSettings.ExcludeBasenameRegex, hashSettings.ExcludeTree, statsChan)
-
-			// pick hash instance
-			hash, err := internals.HashForHashAlgo(hashSettings.HashAlgorithm)
-			if err != nil {
-				handleError(err.Error(), 1, hashSettings.JSONOutput)
-			}
-
-			stats := <-statsChan
+			stats := internals.GenerateStatistics(hashSettings.BaseNode, hashSettings.IgnorePermErrors, hashSettings.ExcludeBasename, hashSettings.ExcludeBasenameRegex, hashSettings.ExcludeTree)
 			log.Println(stats.String())
 
-			/*hashMe(hashSettings.BaseNode, hashSettings.BFS, hashSettings.DFS, hashSettings.IgnorePermErrors, hashSettings.HashAlgorithm, hashSettings.)
+			// traverse tree
+			output := make(chan internals.ReportTailLine)
+			errChan := make(chan error)
+			internals.TraverseNode(hashSettings.BaseNode, hashSettings.DFS, hashSettings.IgnorePermErrors,
+				hashSettings.HashAlgorithm, hashSettings.ExcludeBasename, hashSettings.ExcludeBasenameRegex,
+				hashSettings.ExcludeTree, hashSettings.BasenameMode, hashSettings.Workers, output, errChan,
+			)
 
-
-			cmd                  *kingpin.CmdClause
-			BaseNode             *string
-			BFS                  *bool
-			DFS                  *bool
-			IgnorePermErrors     *bool
-			HashAlgorithm        *string
-			ExcludeBasename      *[]string
-			ExcludeBasenameRegex *[]string
-			ExcludeTree          *[]string
-			BasenameMode         *bool
-			EmptyMode            *bool
-			Workers              *int
-			ConfigOutput         *bool
-			JSONOutput           *bool
-			Help                 *bool
-
-
-
-			b, err := json.Marshal(hashSettings)
-			if err != nil {
-				handleError(err.Error(), 2, hashSettings.JSONOutput)
-				return
+			var err error
+			targetDigest := make([]byte, 128) // 128 bytes = 1024 bits digest output
+		LOOP:
+			for {
+				select {
+				case entry := <-output:
+					if entry.Path == "" {
+						copy(targetDigest, entry.HashValue)
+					}
+				case err = <-errChan:
+					break LOOP
+				}
 			}
-			fmt.Println(string(b))*/
 
-			hash.ReadFile(hashSettings.BaseNode)
-			fmt.Println(hash.HexDigest())
+			if err != nil {
+				log.Println(err)
+			} else {
+				fmt.Println(hex.EncodeToString(targetDigest))
+			}
 		} else {
 			// NOTE in this case, we don't generate fsstats
 			hash, err := internals.HashForHashAlgo(hashSettings.HashAlgorithm)

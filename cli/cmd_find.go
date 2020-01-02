@@ -83,11 +83,13 @@ func (c *cliFindCommand) Validate() (*FindCommand, error) {
 	cmd.Help = *c.Help
 
 	// default values
-	if envToBool("DUPFILES_OVERWRITE") {
-		cmd.Overwrite = true
+	envOverwrite, errOverwrite := envToBool("DUPFILES_OVERWRITE")
+	if errOverwrite == nil {
+		cmd.Overwrite = envOverwrite
 	}
-	if envToBool("DUPFILES_JSON") {
-		cmd.JSONOutput = true
+	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	if errJSON == nil {
+		cmd.JSONOutput = envJSON
 	}
 
 	return cmd, nil

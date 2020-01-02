@@ -47,8 +47,9 @@ func (c *cliStatsCommand) Validate() (*StatsCommand, error) {
 	cmd.JSONOutput = *c.JSONOutput
 
 	// default values
-	if envToBool("DUPFILES_JSON") {
-		cmd.JSONOutput = true
+	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	if errJSON == nil {
+		cmd.JSONOutput = envJSON
 	}
 
 	return cmd, nil

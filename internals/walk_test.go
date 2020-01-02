@@ -47,39 +47,56 @@ func TestDFSBFS(t *testing.T) {
 	}
 
 	// run DFS
-	pathChan := make(chan string)
-	doneChan := make(chan bool)
+	fileChan := make(chan string)
+	dirChan := make(chan string)
+	doneChan1 := make(chan bool)
+	doneChan2 := make(chan bool)
 	data := make([]string, 0, 10)
 	go func() {
-		for path := range pathChan {
+		for path := range fileChan {
 			data = append(data, filepath.Base(path))
 		}
-		doneChan <- true
+		doneChan1 <- true
 	}()
-	err = Walk(filepath.Join(base, "1"), false, false, []string{}, []string{}, []string{}, pathChan)
+	go func() {
+		for path := range dirChan {
+			data = append(data, filepath.Base(path))
+		}
+		doneChan2 <- true
+	}()
+	err = Walk(filepath.Join(base, "1"), false, false, []string{}, []string{}, []string{}, fileChan, dirChan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-doneChan
+	<-doneChan1
+	<-doneChan2
 	expected := "5,6,3,8,7,4,2,1"
 	if !compareSlice(data, strings.Split(expected, ",")) {
 		t.Fatalf("Expected %s got %s", expected, strings.Join(data, ","))
 	}
 
 	// run BFS
-	pathChan = make(chan string)
+	fileChan = make(chan string)
+	dirChan = make(chan string)
 	data = data[:0]
 	go func() {
-		for path := range pathChan {
+		for path := range fileChan {
 			data = append(data, filepath.Base(path))
 		}
-		doneChan <- true
+		doneChan1 <- true
 	}()
-	err = Walk(filepath.Join(base, "1"), true, false, []string{}, []string{}, []string{}, pathChan)
+	go func() {
+		for path := range fileChan {
+			data = append(data, filepath.Base(path))
+		}
+		doneChan2 <- true
+	}()
+	err = Walk(filepath.Join(base, "1"), true, false, []string{}, []string{}, []string{}, fileChan, dirChan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-doneChan
+	<-doneChan1
+	<-doneChan2
 	expected = "2,5,6,3,8,7,4,1"
 	if !compareSlice(data, strings.Split(expected, ",")) {
 		t.Fatalf("Expected %s got %s", strings.Join(data, ","), expected)

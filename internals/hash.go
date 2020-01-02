@@ -2,8 +2,6 @@ package internals
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 )
 
 // Hash is a custom interface to define operations
@@ -57,114 +55,19 @@ func HashForHashAlgo(hashAlgo string) (Hash, error) {
 		return NewSHA512(), nil
 	case "sha-3":
 		return NewSHA3_512(), nil
+	case "shake256-64":
+		return NewSHAKE256_64(), nil
 	}
 	return NewCRC64(), fmt.Errorf(`unknown hash algorithm '%s'`, hashAlgo)
 }
 
-// HashOneNonDirectory returns (digest, file node type, file size, error)
-// after hashing a node which is not a directory.
-func HashOneNonDirectory(filePath string, hash Hash, basenameMode bool) ([]byte, byte, uint64, error) {
-	fileInfo, err := os.Stat(filePath)
-	size := uint64(fileInfo.Size())
-	if err != nil {
-		return []byte{}, 'X', size, err
+// SupportedHashAlgorithms returns the list of supported hash algorithms.
+// The slice contains specified hash algorithm identifiers
+func SupportedHashAlgorithms() []string {
+	return []string{
+		"crc64", "crc32", "fnv-1-32", "fnv-1-64", "fnv-1-128",
+		"fnv-1a-32", "fnv-1a-64", "fnv-1a-128", "adler32",
+		"md5", "sha-1", "sha-256", "sha-512", "sha-3",
+		"shake256-64",
 	}
-
-	hash.Reset()
-
-	if basenameMode {
-		hash.ReadBytes([]byte(filepath.Base(filePath)))
-		hash.ReadBytes([]byte{31}) // U+001F unit separator
-	}
-
-	mode := fileInfo.Mode()
-	switch {
-	case mode.IsDir():
-		return []byte{}, 'D', size, fmt.Errorf(`expected non-directory, got directory %s`, filePath)
-	case mode&os.ModeDevice != 0: // C
-		hash.ReadBytes([]byte(`device file`))
-		return hash.Digest(), 'C', size, nil
-	case mode.IsRegular(): // F
-		hash.ReadFile(filePath)
-		return hash.Digest(), 'F', size, nil
-	case mode&os.ModeSymlink != 0: // L
-		target, err := os.Readlink(filePath)
-		if err != nil {
-			return hash.Digest(), 'X', size, fmt.Errorf(`resolving FS link %s failed: %s`, filePath, err)
-		}
-		hash.ReadBytes([]byte(`link to `))
-		hash.ReadBytes([]byte(target))
-		return hash.Digest(), 'L', size, nil
-	case mode&os.ModeNamedPipe != 0: // P
-		hash.ReadBytes([]byte(`FIFO pipe`))
-		return hash.Digest(), 'P', size, nil
-	case mode&os.ModeSocket != 0: // S
-		hash.ReadBytes([]byte(`UNIX domain socket`))
-		return hash.Digest(), 'S', size, nil
-	}
-	return hash.Digest(), 'X', size, fmt.Errorf(`unknown file type at path '%s'`, filePath)
-}
-
-// HashTree takes a base node and determines hashes of its recursive directory tree.
-// Hash results are reported through the provided channel.
-func HashTree(baseNode string, bfs, basenameMode bool, hashAlgo string,
-	excludeFilename []string, excludeFilenameRegex []string, excludeTree []string,
-	out chan ReportTailLine) error {
-
-	/*
-		dirHashes := make(map[string][]byte)
-		var dirHashesMutex sync.RWMutex
-
-		var wg sync.WaitGroup
-		pathChan := make(chan string, workers)
-		stop := false
-		var anyError error
-
-		wg.Add(workers)
-		for w := 0; w < workers; w++ {
-			go func() {
-				// fetch Hash instance
-				hash, err := internals.HashForHashAlgo(hashAlgo)
-				if err != nil {
-					anyError = err
-					wg.Done()
-					return
-				}
-				// receive paths from channels
-				for path := range pathChan {
-					digest, nodeType, fileSize, err := HashOneNonDirectory(path, hash, basenameMode)
-					if err != nil {
-						anyError = err
-						wg.Done()
-						return
-					}
-					err = rep.TailLine(digest, nodeType, fileSize, path)
-					if err != nil {
-						anyError = err
-						wg.Done()
-						return
-					}
-					if stop {
-						break
-					}
-				}
-				wg.Done()
-			}()
-		}
-
-		err = Walk(
-			baseNode,
-			bfs,
-			excludeFilename,
-			excludeFilenameRegex,
-			excludeTree,
-			pathChan,
-		)
-		wg.Wait()
-		if anyError != nil {
-			handleError(anyError.Error(), 2, reportSettings.JSONOutput)
-		}
-		os.Exit(0)
-	*/
-	return nil
 }

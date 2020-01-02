@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 )
 
 // Statistics collects data of the preevaluation
@@ -22,7 +21,15 @@ func (s *Statistics) String() string {
 	if s.ErrorMessage != nil {
 		return fmt.Sprintf(`stats: an error occured - %s`, s.ErrorMessage.Error())
 	}
-	return fmt.Sprintf(`stats: %d dirs %d files %d maxsize %d maxdepth`, s.CountFolders, s.CountFiles, s.MaxSize, s.MaxDepth)
+	d := "dirs"
+	if s.CountFolders == 1 {
+		d = "dir"
+	}
+	f := "files"
+	if s.CountFiles == 1 {
+		f = "file"
+	}
+	return fmt.Sprintf(`stats: %d %s %d %s %s maxsize %d maxdepth`, s.CountFolders, d, s.CountFiles, f, humanReadableBytes(s.MaxSize), s.MaxDepth)
 }
 
 func (s *Statistics) Error() string {
@@ -35,8 +42,8 @@ func (s *Statistics) Error() string {
 // GenerateStatistics determines Statistics for the gives base node.
 // It serves as a pre-evaluation of the file system.
 // Because it does not read the content of files, it is expected to be much faster than the hashing walk.
-// The result is written to the provided channel
-func GenerateStatistics(baseNode string, ignorePermErrors bool, excludeBasename, excludeBasenameRegex, excludeTree []string, result chan<- Statistics) {
+// The result is written to the provided channel.
+func GenerateStatistics(baseNode string, ignorePermErrors bool, excludeBasename, excludeBasenameRegex, excludeTree []string) Statistics {
 	var stats Statistics
 
 	regexes := make([]*regexp.Regexp, len(excludeBasenameRegex))
@@ -47,7 +54,7 @@ func GenerateStatistics(baseNode string, ignorePermErrors bool, excludeBasename,
 	stats.ErrorMessage = filepath.Walk(baseNode, func(path string, info os.FileInfo, err error) error {
 		// if error occured, handle it
 		if err != nil {
-			if strings.Contains(err.Error(), `permission denied`) && ignorePermErrors {
+			if isPermissionError(err) && ignorePermErrors {
 				if info.IsDir() {
 					return filepath.SkipDir
 				}
@@ -121,6 +128,5 @@ func GenerateStatistics(baseNode string, ignorePermErrors bool, excludeBasename,
 		return nil
 	})
 
-	result <- stats
-	return
+	return stats
 }

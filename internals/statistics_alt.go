@@ -33,15 +33,6 @@ func (a *Analysis) String() string {
 	)
 }
 
-func contains(set []string, item string) bool {
-	for _, element := range set {
-		if item == element {
-			return true
-		}
-	}
-	return false
-}
-
 func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors bool, excludeFilename []string, excludeFilenameRegexp []*regexp.Regexp, excludeTree []string) error {
 	for _, tree := range excludeTree {
 		if len(tree) > 0 && strings.HasSuffix(baseNode, tree) {
@@ -65,7 +56,7 @@ func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 		data.TotalByteSize += uint64(stat.Size())
 		data.TotalEntries++
 
-		switch classify(stat) {
+		switch determineNodeType(stat) {
 		case 'C':
 			data.CountDeviceFile++
 		case 'F':

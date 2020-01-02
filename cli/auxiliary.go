@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -40,9 +41,14 @@ func envOr(envKey, defaultValue string) string {
 }
 
 // envToBool returns environment variable envKey considered as boolean value
-func envToBool(envKey string) bool {
+func envToBool(envKey string) (bool, error) {
 	val, ok := os.LookupEnv(envKey)
-	return (ok && val == "1" || ok && strings.ToLower(val) == "true")
+	if ok && (val == `1` || strings.ToLower(val) == `true`) {
+		return true, nil
+	} else if ok && (val == `0` || strings.ToLower(val) == `false`) {
+		return false, nil
+	}
+	return false, fmt.Errorf(`boolean env key '%s' unspecified`, envKey)
 }
 
 // envToInt returns environment variable envKey considered as integer value
@@ -66,4 +72,8 @@ func jsonOutput() bool {
 		}
 	}
 	return false
+}
+
+func countCPUs() int {
+	return runtime.NumCPU()
 }

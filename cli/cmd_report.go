@@ -67,7 +67,7 @@ func newCLIReportCommand(app *kingpin.Application) *cliReportCommand {
 	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(envOr("DUPFILES_HASH_ALGORITHM", "fnv-1a-128")).Short('a').String()
 	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
 	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
-	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings()
+	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings() // TODO trim any trailing/leading separators
 	c.BasenameMode = c.cmd.Flag("basename-mode", "basename mode (thus hashes encode structure)").Bool()
 	c.EmptyMode = c.cmd.Flag("empty-mode", "empty mode (thus hashes match tools like md5sum)").Bool()
 	c.Workers = c.cmd.Flag("workers", "number of concurrent traversal units").Int()
@@ -78,6 +78,10 @@ func newCLIReportCommand(app *kingpin.Application) *cliReportCommand {
 }
 
 func (c *cliReportCommand) Validate() (*ReportCommand, error) {
+	envBFS, errBFS := envToBool("DUPFILES_BFS")
+	envDFS, errDFS := envToBool("DUPFILES_DFS")
+	// TODO are boolean arguments properly propagated
+
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {
 		return nil, fmt.Errorf("basenode must not be empty")
@@ -85,7 +89,7 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 	if *c.DFS && *c.BFS {
 		return nil, fmt.Errorf("cannot accept --bfs and --dfs simultaneously")
 	}
-	if envToBool(`DUPFILES_BFS`) && envToBool(`DUPFILES_DFS`) {
+	if (errBFS == nil && envBFS) && (errDFS == nil && envDFS) {
 		return nil, fmt.Errorf("cannot accept env BFS and DFS simultaneously")
 	}
 	if *c.BasenameMode && *c.EmptyMode {
@@ -119,27 +123,29 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 	cmd.Help = false
 
 	// default values
+	envOverwrite, errOverwrite := envToBool("DUPFILES_OVERWRITE")
+
 	if cmd.BaseNodeName == "" {
 		cmd.BaseNodeName = cmd.BaseNode
 	}
-	if envToBool("DUPFILES_OVERWRITE") {
-		cmd.Overwrite = true
+	if errOverwrite == nil {
+		cmd.Overwrite = envOverwrite
 	}
 	if !cmd.BFS && !cmd.DFS {
-		if envToBool("DUPFILES_BFS") && !envToBool("DUPFILES_DFS") {
-			cmd.BFS = true
-		} else if !envToBool("DUPFILES_BFS") && envToBool("DUPFILES_DFS") {
-			cmd.DFS = true
-		} else if !envToBool("DUPFILES_BFS") && !envToBool("DUPFILES_DFS") {
-			cmd.BFS = false
-			cmd.DFS = true
+		if errBFS == nil {
+			cmd.BFS = envBFS
+		}
+		if errDFS == nil {
+			cmd.DFS = envDFS
 		}
 	}
-	if envToBool("DUPFILES_IGNORE_PERM_ERRORS") && !cmd.IgnorePermErrors {
-		cmd.IgnorePermErrors = true
+	envIPE, errIPE := envToBool("DUPFILES_IGNORE_PERM_ERRORS")
+	if errIPE == nil && !cmd.IgnorePermErrors {
+		cmd.IgnorePermErrors = envIPE
 	}
-	if envToBool("DUPFILES_EMPTY_MODE") && !cmd.BasenameMode {
-		cmd.EmptyMode = true
+	envEmpty, errEmpty := envToBool("DUPFILES_EMPTY_MODE")
+	if errEmpty == nil && !cmd.BasenameMode {
+		cmd.EmptyMode = envEmpty
 	}
 	if cmd.Workers == 0 {
 		if w, ok := envToInt("DUPFILES_WORKERS"); ok {
@@ -148,8 +154,9 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 			cmd.Workers = runtime.NumCPU()
 		}
 	}
-	if envToBool("DUPFILES_JSON") {
-		cmd.JSONOutput = true
+	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	if errJSON == nil {
+		cmd.JSONOutput = envJSON
 	}
 
 	// validity check 2
