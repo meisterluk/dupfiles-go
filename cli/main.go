@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/meisterluk/dupfiles-go/internals"
@@ -161,65 +162,34 @@ func main() {
 			handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
 
-		err = rep.HeadLine(reportSettings.HashAlgorithm, !reportSettings.EmptyMode, reportSettings.BaseNodeName, reportSettings.BaseNode)
+		fullPath, err := filepath.Abs(reportSettings.BaseNode)
+		if err != nil {
+			handleError(err.Error(), 2, reportSettings.JSONOutput)
+		}
+		err = rep.HeadLine(reportSettings.HashAlgorithm, !reportSettings.EmptyMode, reportSettings.BaseNodeName, fullPath)
 		if err != nil {
 			handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
 
 		// walk and write tail lines
-		// TODO: is this code goroutine-safe?
-		var wg sync.WaitGroup
-		pathChan := make(chan string, reportSettings.Workers)
-		stop := false
-		var anyError error
+		entries := make(chan internals.ReportTailLine)
+		errChan := make(chan error)
+		go internals.Evaluate(
+			reportSettings.BaseNode, reportSettings.DFS, reportSettings.IgnorePermErrors, reportSettings.HashAlgorithm,
+			reportSettings.ExcludeBasename, reportSettings.ExcludeBasenameRegex, reportSettings.ExcludeTree,
+			reportSettings.BasenameMode, reportSettings.Workers, entries, errChan,
+		)
 
-		// TODO start reportSettings.Workers workers receiving
-		//   * paths, consume them, generate hashes
-
-		wg.Add(reportSettings.Workers)
-		for w := 0; w < reportSettings.Workers; w++ {
-			go func() {
-				// fetch Hash instance
-				hash, err := internals.HashForHashAlgo(reportSettings.HashAlgorithm)
-				if err != nil {
-					anyError = err
-					wg.Done()
-					return
-				}
-				// receive paths from channels
-				for path := range pathChan {
-					digest, nodeType, fileSize, err := internals.HashOneNonDirectory(path, hash, !reportSettings.EmptyMode)
-					if err != nil {
-						anyError = err
-						wg.Done()
-						return
-					}
-					err = rep.TailLine(digest, nodeType, fileSize, path)
-					if err != nil {
-						anyError = err
-						wg.Done()
-						return
-					}
-					if stop {
-						break
-					}
-				}
-				wg.Done()
-			}()
+		for entry := range entries {
+			err = rep.TailLine(entry.HashValue, entry.NodeType, entry.FileSize, entry.Path)
+			if err != nil {
+				handleError(err.Error(), 2, reportSettings.JSONOutput)
+			}
 		}
 
-		/*err = internals.Walk(
-			reportSettings.BaseNode,
-			reportSettings.BFS,
-			reportSettings.IgnorePermErrors,
-			reportSettings.ExcludeBasename,
-			reportSettings.ExcludeBasenameRegex,
-			reportSettings.ExcludeTree,
-			pathChan,
-		)*/
-		wg.Wait()
-		if anyError != nil {
-			handleError(anyError.Error(), 2, reportSettings.JSONOutput)
+		err, ok := <-errChan
+		if ok {
+			handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
 		os.Exit(0)
 
@@ -229,11 +199,70 @@ func main() {
 			kingpin.FatalUsage(err.Error())
 		}
 
-		b, err := json.Marshal(findSettings)
-		if err != nil {
-			fmt.Println("error:", err)
+		if findSettings.ConfigOutput {
+			// config output is printed in JSON independent of findSettings.JSONOutput
+			b, err := json.Marshal(findSettings)
+			if err != nil {
+				handleError(err.Error(), 2, findSettings.JSONOutput)
+				return
+			}
+			fmt.Println(string(b))
+			return
 		}
-		fmt.Println(string(b))
+
+		errChan := make(chan error)
+		dupEntries := make(chan internals.DuplicateSet)
+		exitCode := 0 // TODO requires better feedback from errChan
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			// error goroutine
+			defer wg.Done()
+			for err := range errChan {
+				log.Println(`error:`, err)
+			}
+		}()
+		go func() {
+			// duplicates goroutine
+			defer wg.Done()
+			type jsonOut struct {
+				LineNo     uint64 `json:"lineno"`
+				ReportFile string `json:"report"`
+				Path       string `json:"path"`
+			}
+
+			for entry := range dupEntries {
+				log.Println("<finalized entry>")
+				if findSettings.JSONOutput {
+					entries := make([]jsonOut, 0, len(entry.Set))
+					for _, equiv := range entry.Set {
+						entries = append(entries, jsonOut{
+							LineNo:     equiv.Lineno,
+							ReportFile: equiv.ReportFile,
+							Path:       equiv.Path,
+						})
+					}
+					jsonDump, err := json.Marshal(entries)
+					if err != nil {
+						errChan <- err
+						continue
+					}
+					os.Stdout.Write(jsonDump)
+				} else {
+					fmt.Println(hex.EncodeToString(entry.Digest))
+					for _, s := range entry.Set {
+						fmt.Println(`  ` + s.ReportFile + `: ` + s.Path)
+					}
+					fmt.Println("")
+				}
+				log.Println("</finalized entry>")
+			}
+		}()
+
+		internals.FindDuplicates(findSettings.Reports, dupEntries, errChan)
+		wg.Wait()
+		os.Exit(exitCode)
 
 	case stats.cmd.FullCommand():
 		statsSettings, err := stats.Validate()
@@ -277,26 +306,21 @@ func main() {
 			// traverse tree
 			output := make(chan internals.ReportTailLine)
 			errChan := make(chan error)
-			internals.TraverseNode(hashSettings.BaseNode, hashSettings.DFS, hashSettings.IgnorePermErrors,
+			go internals.Evaluate(hashSettings.BaseNode, hashSettings.DFS, hashSettings.IgnorePermErrors,
 				hashSettings.HashAlgorithm, hashSettings.ExcludeBasename, hashSettings.ExcludeBasenameRegex,
 				hashSettings.ExcludeTree, hashSettings.BasenameMode, hashSettings.Workers, output, errChan,
 			)
 
-			var err error
+			// read value from evaluation
 			targetDigest := make([]byte, 128) // 128 bytes = 1024 bits digest output
-		LOOP:
-			for {
-				select {
-				case entry := <-output:
-					if entry.Path == "" {
-						copy(targetDigest, entry.HashValue)
-					}
-				case err = <-errChan:
-					break LOOP
+			for tailline := range output {
+				if tailline.Path == "." {
+					copy(targetDigest, tailline.HashValue)
 				}
 			}
 
-			if err != nil {
+			err, ok := <-errChan
+			if ok {
 				log.Println(err)
 			} else {
 				fmt.Println(hex.EncodeToString(targetDigest))

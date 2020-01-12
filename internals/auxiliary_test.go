@@ -17,3 +17,26 @@ func TestByteEncode(t *testing.T) {
 		}
 	}
 }
+
+func TestXor(t *testing.T) {
+	tests := [][3][]byte{
+		[3][]byte{[]byte{}, []byte{}, []byte{}},
+		[3][]byte{[]byte{1}, []byte{2}, []byte{3}},
+		[3][]byte{[]byte{0x42, 0x99}, []byte{0x16, 0x09}, []byte{0x54, 0x90}},
+		[3][]byte{[]byte{1, 4, 2}, []byte{4, 1, 16}, []byte{5, 5, 18}},
+	}
+
+	for _, test := range tests {
+		expected := test[2]
+		xorByteSlices(test[0], test[1])
+		actual := test[0]
+		if len(expected) != len(actual) {
+			t.Fatalf(`expected bytes %v, got %v`, expected, actual)
+		}
+		for i := 0; i < len(expected); i++ {
+			if expected[i] != actual[i] {
+				t.Fatalf(`expected byte %v at %d, got %v`, expected[i], i, actual[i])
+			}
+		}
+	}
+}

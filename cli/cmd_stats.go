@@ -9,6 +9,7 @@ import (
 // StatsCommand defines the CLI command parameters
 type StatsCommand struct {
 	Report       string `json:"report"`
+	Long         bool   `json:"long"`
 	ConfigOutput bool   `json:"config"`
 	JSONOutput   bool   `json:"json"`
 	Help         bool   `json:"help"`
@@ -18,6 +19,7 @@ type StatsCommand struct {
 type cliStatsCommand struct {
 	cmd          *kingpin.CmdClause
 	Report       *string
+	Long         *bool
 	ConfigOutput *bool
 	JSONOutput   *bool
 	Help         *bool
@@ -28,6 +30,7 @@ func newCLIStatsCommand(app *kingpin.Application) *cliStatsCommand {
 	c.cmd = app.Command("stats", "Prints some statistics about filesystem nodes based on a report.")
 
 	c.Report = c.cmd.Arg("report", "report to consider").Required().String()
+	c.Long = c.cmd.Flag("long", "compute more features, but takes longer").Bool()
 	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
 	c.JSONOutput = c.cmd.Flag("json", "return output as JSON, not as plain text").Bool()
 
@@ -47,6 +50,11 @@ func (c *cliStatsCommand) Validate() (*StatsCommand, error) {
 	cmd.JSONOutput = *c.JSONOutput
 
 	// default values
+	envLong, errLong := envToBool("DUPFILES_LONG")
+	if errLong == nil {
+		cmd.Long = envLong
+	}
+
 	envJSON, errJSON := envToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON

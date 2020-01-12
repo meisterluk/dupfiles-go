@@ -56,9 +56,46 @@ func HashForHashAlgo(hashAlgo string) (Hash, error) {
 	case "sha-3":
 		return NewSHA3_512(), nil
 	case "shake256-64":
-		return NewSHAKE256_64(), nil
+		return NewSHAKE256_128(), nil
 	}
 	return NewCRC64(), fmt.Errorf(`unknown hash algorithm '%s'`, hashAlgo)
+}
+
+// OutputSizeForHashAlgo returns the output size in bytes for a given hash algorithm.
+func OutputSizeForHashAlgo(hashAlgo string) int {
+	switch hashAlgo {
+	case "crc64":
+		return 8
+	case "crc32":
+		return 4
+	case "fnv-1-32":
+		return 4
+	case "fnv-1-64":
+		return 8
+	case "fnv-1-128":
+		return 16
+	case "fnv-1a-32":
+		return 4
+	case "fnv-1a-64":
+		return 8
+	case "fnv-1a-128":
+		return 16
+	case "adler32":
+		return 4
+	case "md5":
+		return 16
+	case "sha-1":
+		return 20
+	case "sha-256":
+		return 32
+	case "sha-512":
+		return 64
+	case "sha-3":
+		return 64
+	case "shake256-64":
+		return 8
+	}
+	return 0
 }
 
 // SupportedHashAlgorithms returns the list of supported hash algorithms.

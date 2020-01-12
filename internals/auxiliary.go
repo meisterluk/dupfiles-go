@@ -21,6 +21,32 @@ func contains(set []string, item string) bool {
 	return false
 }
 
+// compareSlice determines whether string slices as and bs have the same content
+func compareSlice(as, bs []string) bool {
+	if len(as) != len(bs) {
+		return false
+	}
+	for i, a := range as {
+		if a != bs[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// compareBytes determines whether bytes slices as and bs have the same content
+func compareBytes(as, bs []byte) bool {
+	if len(as) != len(bs) {
+		return false
+	}
+	for i, a := range as {
+		if a != bs[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // byteEncode implements the byte encoding defined in the design document
 func byteEncode(basename string) string {
 	if utf8.ValidString(basename) {

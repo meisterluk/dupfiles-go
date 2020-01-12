@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"runtime"
 
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -126,7 +127,7 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 	envOverwrite, errOverwrite := envToBool("DUPFILES_OVERWRITE")
 
 	if cmd.BaseNodeName == "" {
-		cmd.BaseNodeName = cmd.BaseNode
+		cmd.BaseNodeName = filepath.Base(cmd.BaseNode)
 	}
 	if errOverwrite == nil {
 		cmd.Overwrite = envOverwrite

@@ -42,7 +42,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			}
 			if bufferIndex > 0 || (cache[0] != '\n' && cache[0] != '\r') {
 				buffer[bufferIndex] = cache[0]
-				bufferIndex += 1
+				bufferIndex++
 				if bufferIndex == 512 {
 					return tail, fmt.Errorf(`line too long, please report this issue to the developers`)
 				}
@@ -128,6 +128,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 	return tail, nil
 }
 
+// Close closes the report
 func (r *Report) Close() {
 	if r.File != os.Stdin && r.File != os.Stdout && r.File != os.Stderr {
 		r.File.Close()
@@ -157,7 +158,8 @@ func parseTimestamp(timestamp string) (time.Time, error) {
 func isValidHashAlgo(hashalgo string) bool {
 	whitelist := []string{
 		"crc64", "crc32", "fnv-1-32", "fnv-1-64", "fnv-1-128", "fnv-1a-32", "fnv-1a-64",
-		"fnv-1a-128", "adler32", "md5", "sha-1", "sha-256", "sha-512", "sha-3-512",
+		"fnv-1a-128", "adler32", "md5", "sha-1", "sha-256", "sha-512", "sha-3",
+		"shake256-128",
 	}
 	for _, item := range whitelist {
 		if item == hashalgo {
