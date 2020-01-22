@@ -30,15 +30,12 @@ func newCLIVersionCommand(app *kingpin.Application) *cliVersionCommand {
 }
 
 func (c *cliVersionCommand) Validate() (*VersionCommand, error) {
-	// validity checks (check conditions not covered by kingpin)
-	// (nothing.)
-
 	// migrate cliVersionCommand to versionCommand
 	cmd := new(VersionCommand)
 	cmd.ConfigOutput = *c.ConfigOutput
 	cmd.JSONOutput = *c.JSONOutput
 
-	// default values
+	// handle environment variables
 	envJSON, errJSON := envToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON

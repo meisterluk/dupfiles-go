@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"hash"
 	"hash/adler32"
 	"hash/crc32"
@@ -122,7 +121,7 @@ func TestDFSBFS(t *testing.T) {
 
 	// compare results
 	expected := "5,6,3,8,7,4,2,1,."
-	if !compareSlice(actual, strings.Split(expected, ",")) {
+	if !eqStringSlices(actual, strings.Split(expected, ",")) {
 		t.Fatalf("For DFS, expected order %s got %s", expected, strings.Join(actual, ","))
 	}
 
@@ -131,7 +130,7 @@ func TestDFSBFS(t *testing.T) {
 
 	// compare results
 	expected = "2,5,6,3,8,7,4,1,."
-	if !compareSlice(actual, strings.Split(expected, ",")) {
+	if !eqStringSlices(actual, strings.Split(expected, ",")) {
 		t.Fatalf("For BFS, expected order %s got %s", expected, strings.Join(actual, ","))
 	}
 }
@@ -335,11 +334,10 @@ func TestEvaluate(t *testing.T) {
 	// correctness tests
 	for basenameMode, assignment := range refHashes {
 		for hashAlgorithm, hashes := range assignment {
-			fmt.Println(basenameMode, hashAlgorithm)
 			outputChan := make(chan ReportTailLine)
 			errChan := make(chan error)
 
-			go Evaluate(
+			go HashATree(
 				base, false, false, hashAlgorithm,
 				[]string{}, []string{}, []string{},
 				basenameMode, 4, outputChan, errChan,
@@ -411,7 +409,7 @@ func TestEmptyHashes(t *testing.T) {
 		outputChan := make(chan ReportTailLine)
 		errChan := make(chan error)
 
-		go Evaluate(
+		go HashATree(
 			filepath.Join(base, `example.txt`), false, false, hashAlgorithm,
 			[]string{}, []string{}, []string{},
 			false, len(expected)/2, outputChan, errChan,

@@ -10,8 +10,7 @@ import (
 
 // Adler32 implements the checksum algorithm invented by Mark Adler (1995)
 type Adler32 struct {
-	h   hash.Hash32
-	sum uint32
+	h hash.Hash32
 }
 
 // NewAdler32 defines returns a properly initialized Adler32 instance
@@ -41,7 +40,6 @@ func (c *Adler32) ReadFile(filepath string) error {
 		return err
 	}
 
-	c.sum = c.h.Sum32()
 	return nil
 }
 
@@ -59,11 +57,12 @@ func (c *Adler32) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *Adler32) Digest() []byte {
+	sum := c.h.Sum32()
 	return []byte{
-		byte(c.sum >> 24),
-		byte(c.sum >> 16),
-		byte(c.sum >> 8),
-		byte(c.sum >> 0),
+		byte(sum >> 24),
+		byte(sum >> 16),
+		byte(sum >> 8),
+		byte(sum >> 0),
 	}
 }
 
@@ -72,8 +71,8 @@ func (c *Adler32) HexDigest() string {
 	return hex.EncodeToString(c.Digest())
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *Adler32) HashAlgorithm() string {
+func (c *Adler32) Name() string {
 	return "adler32"
 }

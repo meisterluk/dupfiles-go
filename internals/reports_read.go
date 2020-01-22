@@ -78,9 +78,9 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			return tail, err
 		}
 
-		hashAlgo := strings.ToLower(string(groups[4]))
-		if !isValidHashAlgo(hashAlgo) {
-			return tail, fmt.Errorf(`Unsupported hash algorithm '%s' specified`, hashAlgo)
+		hashAlgorithm := strings.ToLower(string(groups[4]))
+		if !isValidHashAlgo(hashAlgorithm) {
+			return tail, fmt.Errorf(`Unsupported hash algorithm '%s' specified`, hashAlgorithm)
 		}
 
 		mode := groups[5][0]
@@ -90,7 +90,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 
 		r.Head.Version = versionNumber
 		r.Head.Timestamp = timestamp
-		r.Head.HashAlgorithm = hashAlgo
+		r.Head.HashAlgorithm = hashAlgorithm
 		r.Head.BasenameMode = mode == 'B'
 		r.Head.NodeName = string(groups[6])
 		r.Head.BasePath = string(groups[7])

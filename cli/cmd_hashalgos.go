@@ -33,9 +33,6 @@ func newCLIHashAlgosCommand(app *kingpin.Application) *cliHashAlgosCommand {
 }
 
 func (c *cliHashAlgosCommand) Validate() (*HashAlgosCommand, error) {
-	// validity checks (check conditions not covered by kingpin)
-	// (nothing.)
-
 	// migrate CLIHashAlgosCommand to HashAlgosCommand
 	cmd := new(HashAlgosCommand)
 	cmd.CheckSupport = *c.CheckSupport
@@ -43,7 +40,7 @@ func (c *cliHashAlgosCommand) Validate() (*HashAlgosCommand, error) {
 	cmd.JSONOutput = *c.JSONOutput
 	cmd.Help = false
 
-	// default values
+	// handle environment variables
 	envJSON, errJSON := envToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON

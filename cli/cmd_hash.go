@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"runtime"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -66,19 +65,12 @@ func newCLIHashCommand(app *kingpin.Application) *cliHashCommand {
 }
 
 func (c *cliHashCommand) Validate() (*HashCommand, error) {
-	envBFS, errBFS := envToBool("DUPFILES_BFS")
-	envDFS, errDFS := envToBool("DUPFILES_DFS")
-	// TODO are boolean arguments properly propagated
-
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {
 		return nil, fmt.Errorf("basenode must not be empty")
 	}
 	if *c.DFS && *c.BFS {
 		return nil, fmt.Errorf("cannot accept --bfs and --dfs simultaneously")
-	}
-	if (errBFS == nil && envBFS) && (errDFS == nil && envDFS) {
-		return nil, fmt.Errorf("cannot accept env BFS and DFS simultaneously")
 	}
 	if *c.BasenameMode && *c.EmptyMode {
 		return nil, fmt.Errorf("cannot accept --basename-mode and --empty-mode simultaneously")
@@ -106,33 +98,33 @@ func (c *cliHashCommand) Validate() (*HashCommand, error) {
 	cmd.JSONOutput = *c.JSONOutput
 	cmd.Help = false
 
-	// default values
-	if !cmd.BFS && !cmd.DFS {
-		if errBFS == nil {
-			cmd.BFS = envBFS
-		}
-		if errDFS == nil {
-			cmd.DFS = envDFS
-		}
+	// handle environment variables
+	envDFS, errDFS := envToBool("DUPFILES_DFS")
+	if errDFS == nil {
+		cmd.DFS = envDFS
+		cmd.BFS = !envDFS
 	}
-	ignorePermErrors, ipeErr := envToBool("DUPFILES_IGNORE_PERM_ERRORS")
-	if ipeErr != nil {
-		cmd.IgnorePermErrors = ignorePermErrors
+	envEmpty, errEmpty := envToBool("DUPFILES_EMPTY_MODE")
+	if errEmpty == nil {
+		cmd.EmptyMode = envEmpty
+		cmd.BasenameMode = !envEmpty
 	}
-	emptyMode, emErr := envToBool("DUPFILES_EMPTY_MODE")
-	if emErr != nil {
-		cmd.EmptyMode = emptyMode
+	/// DUPFILES_HASH_ALGORITHM was already handled
+	envIPE, errIPE := envToBool("DUPFILES_IGNORE_PERM_ERRORS")
+	if errIPE == nil {
+		cmd.IgnorePermErrors = envIPE
 	}
+	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	if errJSON == nil {
+		cmd.JSONOutput = envJSON
+	}
+	/// DUPFILES_OUTPUT was already handled
 	if cmd.Workers == 0 {
 		if w, ok := envToInt("DUPFILES_WORKERS"); ok {
 			cmd.Workers = w
 		} else {
-			cmd.Workers = runtime.NumCPU()
+			cmd.Workers = countCPUs()
 		}
-	}
-	json, jsonErr := envToBool("DUPFILES_JSON")
-	if jsonErr != nil {
-		cmd.JSONOutput = json
 	}
 
 	// validity check 2

@@ -174,7 +174,7 @@ func main() {
 		// walk and write tail lines
 		entries := make(chan internals.ReportTailLine)
 		errChan := make(chan error)
-		go internals.Evaluate(
+		go internals.HashATree(
 			reportSettings.BaseNode, reportSettings.DFS, reportSettings.IgnorePermErrors, reportSettings.HashAlgorithm,
 			reportSettings.ExcludeBasename, reportSettings.ExcludeBasenameRegex, reportSettings.ExcludeTree,
 			reportSettings.BasenameMode, reportSettings.Workers, entries, errChan,
@@ -232,9 +232,9 @@ func main() {
 				Path       string `json:"path"`
 			}
 
-			for entry := range dupEntries {
-				log.Println("<finalized entry>")
-				if findSettings.JSONOutput {
+			if findSettings.JSONOutput {
+				for entry := range dupEntries {
+					// prepare data structure
 					entries := make([]jsonOut, 0, len(entry.Set))
 					for _, equiv := range entry.Set {
 						entries = append(entries, jsonOut{
@@ -243,20 +243,27 @@ func main() {
 							Path:       equiv.Path,
 						})
 					}
+
+					// marshal to JSON
 					jsonDump, err := json.Marshal(entries)
 					if err != nil {
-						errChan <- err
+						log.Printf(`error marshalling result: %s`, err.Error())
 						continue
 					}
+
 					os.Stdout.Write(jsonDump)
-				} else {
+				}
+
+			} else {
+				for entry := range dupEntries {
+					//log.Println("<finalized entry>")
 					fmt.Println(hex.EncodeToString(entry.Digest))
 					for _, s := range entry.Set {
 						fmt.Println(`  ` + s.ReportFile + `: ` + s.Path)
 					}
 					fmt.Println("")
+					//log.Println("</finalized entry>")
 				}
-				log.Println("</finalized entry>")
 			}
 		}()
 
@@ -306,7 +313,7 @@ func main() {
 			// traverse tree
 			output := make(chan internals.ReportTailLine)
 			errChan := make(chan error)
-			go internals.Evaluate(hashSettings.BaseNode, hashSettings.DFS, hashSettings.IgnorePermErrors,
+			go internals.HashATree(hashSettings.BaseNode, hashSettings.DFS, hashSettings.IgnorePermErrors,
 				hashSettings.HashAlgorithm, hashSettings.ExcludeBasename, hashSettings.ExcludeBasenameRegex,
 				hashSettings.ExcludeTree, hashSettings.BasenameMode, hashSettings.Workers, output, errChan,
 			)
@@ -327,10 +334,11 @@ func main() {
 			}
 		} else {
 			// NOTE in this case, we don't generate fsstats
-			hash, err := internals.HashForHashAlgo(hashSettings.HashAlgorithm)
+			algo, err := internals.HashAlgorithmFromString(hashSettings.HashAlgorithm)
 			if err != nil {
 				handleError(err.Error(), 1, hashSettings.JSONOutput)
 			}
+			hash := algo.Algorithm()
 			hash.ReadFile(hashSettings.BaseNode)
 			fmt.Println(hash.HexDigest())
 		}

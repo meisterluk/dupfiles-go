@@ -14,7 +14,7 @@ type jsonError struct {
 	ExitCode int    `json:"code"`
 }
 
-// handleError prints the error in the appropriate format
+// handleError prints the error in the appropriate (JSON or plain text) format
 func handleError(msg string, exitCode int, jsonOutput bool) {
 	if jsonOutput {
 		jErr := jsonError{msg, exitCode}
@@ -48,7 +48,7 @@ func envToBool(envKey string) (bool, error) {
 	} else if ok && (val == `0` || strings.ToLower(val) == `false`) {
 		return false, nil
 	}
-	return false, fmt.Errorf(`boolean env key '%s' unspecified`, envKey)
+	return false, fmt.Errorf(`boolean env key '%s' has non-bool value '%s'`, envKey, val)
 }
 
 // envToInt returns environment variable envKey considered as integer value
@@ -74,6 +74,7 @@ func jsonOutput() bool {
 	return false
 }
 
+// countCPUs determines the number of logical CPUs in this machine
 func countCPUs() int {
 	return runtime.NumCPU()
 }

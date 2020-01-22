@@ -38,7 +38,7 @@ func newCLIStatsCommand(app *kingpin.Application) *cliStatsCommand {
 }
 
 func (c *cliStatsCommand) Validate() (*StatsCommand, error) {
-	// validity checks (check conditions not covered by kingpin)
+	// validity checks (check conditions that are not covered by kingpin)
 	if *c.Report == "" {
 		return nil, fmt.Errorf("One report must be specified")
 	}
@@ -49,15 +49,14 @@ func (c *cliStatsCommand) Validate() (*StatsCommand, error) {
 	cmd.ConfigOutput = *c.ConfigOutput
 	cmd.JSONOutput = *c.JSONOutput
 
-	// default values
-	envLong, errLong := envToBool("DUPFILES_LONG")
-	if errLong == nil {
-		cmd.Long = envLong
-	}
-
+	// handle environment variables
 	envJSON, errJSON := envToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON
+	}
+	envLong, errLong := envToBool("DUPFILES_LONG")
+	if errLong == nil {
+		cmd.Long = envLong
 	}
 
 	return cmd, nil

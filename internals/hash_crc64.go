@@ -10,8 +10,7 @@ import (
 
 // CRC64 implements the cyclic redundancy check invented by W. Wesley Peterson (1961)
 type CRC64 struct {
-	h   hash.Hash64
-	sum uint64
+	h hash.Hash64
 }
 
 // NewCRC64 defines returns a properly initialized CRC64 instance
@@ -44,7 +43,6 @@ func (c *CRC64) ReadFile(filepath string) error {
 		return err
 	}
 
-	c.sum = c.h.Sum64()
 	return nil
 }
 
@@ -62,15 +60,16 @@ func (c *CRC64) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *CRC64) Digest() []byte {
+	sum := c.h.Sum64()
 	return []byte{
-		byte(c.sum >> 56),
-		byte(c.sum >> 48),
-		byte(c.sum >> 40),
-		byte(c.sum >> 32),
-		byte(c.sum >> 24),
-		byte(c.sum >> 16),
-		byte(c.sum >> 8),
-		byte(c.sum >> 0),
+		byte(sum >> 56),
+		byte(sum >> 48),
+		byte(sum >> 40),
+		byte(sum >> 32),
+		byte(sum >> 24),
+		byte(sum >> 16),
+		byte(sum >> 8),
+		byte(sum >> 0),
 	}
 }
 
@@ -79,8 +78,8 @@ func (c *CRC64) HexDigest() string {
 	return hex.EncodeToString(c.Digest())
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *CRC64) HashAlgorithm() string {
+func (c *CRC64) Name() string {
 	return "crc64"
 }

@@ -21,8 +21,8 @@ func contains(set []string, item string) bool {
 	return false
 }
 
-// compareSlice determines whether string slices as and bs have the same content
-func compareSlice(as, bs []string) bool {
+// eqStringSlices determines whether string slices as and bs have the same content
+func eqStringSlices(as, bs []string) bool {
 	if len(as) != len(bs) {
 		return false
 	}
@@ -34,8 +34,8 @@ func compareSlice(as, bs []string) bool {
 	return true
 }
 
-// compareBytes determines whether bytes slices as and bs have the same content
-func compareBytes(as, bs []byte) bool {
+// eqByteSlices determines whether bytes slices as and bs have the same content
+func eqByteSlices(as, bs []byte) bool {
 	if len(as) != len(bs) {
 		return false
 	}
@@ -76,34 +76,55 @@ func byteEncode(basename string) string {
 // byteDecode implements the inverse operation for "byteEncode(basename string) string".
 func byteDecode(basename string) (string, error) {
 	if !utf8.ValidString(basename) {
-		return "", fmt.Errorf(`byteDecode requires a valid utf-8 string as argument, got '%q'`, basename)
+		return "", fmt.Errorf(`byteDecode requires a valid utf-8 string as argument, got %q`, basename)
 	}
 	var err error
 
-	re := regexp.MustCompile(`\\x(0A|0B|0C|0D|85)`)
-	basename = re.ReplaceAllStringFunc(basename, func(match string) string {
+	re := regexp.MustCompile(`^(\\x[0-9a-fA-F][0-9a-fA-F])+$`)
+	if re.MatchString(basename) {
+		re2 := regexp.MustCompile(`\\x([0-9a-fA-F][0-9a-fA-F])`)
+		basename = re2.ReplaceAllStringFunc(basename, func(match string) string {
+			s, e := hex.DecodeString(string(match[2:4]))
+			err = e
+			return string(s)
+		})
+		basename = strings.Replace(basename, `\x`, "", -1)
+		return basename, nil
+	}
+
+	re2 := regexp.MustCompile(`\\x(0A|0B|0C|0D|85)`)
+	basename = re2.ReplaceAllStringFunc(basename, func(match string) string {
 		s, e := hex.DecodeString(string(match[2:4]))
 		err = e
 		return string(s)
 	})
 	if err != nil {
-		return "", fmt.Errorf(`byteDecode got an invalid argument: '%q'`, err.Error())
+		return "", fmt.Errorf(`byteDecode got an invalid argument. %s`, err.Error())
 	}
 
-	re2 := regexp.MustCompile(`\\xE2\\x80\\xA(8|9)`)
-	basename = re2.ReplaceAllStringFunc(basename, func(match string) string {
+	re3 := regexp.MustCompile(`\\xE2\\x80\\xA(8|9)`)
+	basename = re3.ReplaceAllStringFunc(basename, func(match string) string {
 		if match == `\\xE2\\x80\\xA8` {
 			return "\xE2\x80\xA8"
 		}
 		return "\xE2\x80\xA9"
 	})
 
-	return basename, fmt.Errorf(`byteDecode got an invalid argument: '%q'`, err.Error())
+	re4 := regexp.MustCompile(`\\(\\{1,})`)
+	basename = re4.ReplaceAllString(basename, `$1`)
+
+	return basename, nil
 }
 
 func humanReadableBytes(count uint64) string {
 	bytes := float64(count)
 	units := []string{"bytes", "KiB", "MiB", "GiB", "TiB", "PiB"}
+	if count == 0 {
+		return fmt.Sprintf("no bytes")
+	}
+	if count == 1 {
+		return fmt.Sprintf("1 byte")
+	}
 	for _, unit := range units {
 		if bytes < 1024 {
 			return fmt.Sprintf(`%.02f %s`, bytes, unit)

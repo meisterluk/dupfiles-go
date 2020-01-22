@@ -11,7 +11,7 @@ import (
 // SHAKE256_128 implements the SHAKE hash algorithm with 128bit output and a security claim of 32 bits
 type SHAKE256_128 struct {
 	h   sha3.ShakeHash
-	sum [128]byte
+	buf [128]byte
 }
 
 // NewSHAKE256_128 defines returns a properly initialized SHAKE256-128 instance
@@ -41,13 +41,18 @@ func (c *SHAKE256_128) ReadFile(filepath string) error {
 		return err
 	}
 
-	_, err = c.h.Read(c.sum[:])
+	_, err = c.h.Read(c.buf[:])
 	return err
 }
 
 // ReadBytes provides an interface to update the hash state with individual bytes
 func (c *SHAKE256_128) ReadBytes(data []byte) error {
 	_, err := c.h.Write(data)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.h.Read(c.buf[:])
 	return err
 }
 
@@ -59,16 +64,16 @@ func (c *SHAKE256_128) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *SHAKE256_128) Digest() []byte {
-	return c.sum[:]
+	return c.buf[:]
 }
 
 // HexDigest returns the hash state digest encoded in a hexadecimal string
 func (c *SHAKE256_128) HexDigest() string {
-	return hex.EncodeToString(c.sum[:])
+	return hex.EncodeToString(c.buf[:])
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *SHAKE256_128) HashAlgorithm() string {
+func (c *SHAKE256_128) Name() string {
 	return "shake256-128"
 }

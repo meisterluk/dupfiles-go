@@ -43,7 +43,7 @@ func newCLIFindCommand(app *kingpin.Application) *cliFindCommand {
 }
 
 func (c *cliFindCommand) Validate() (*FindCommand, error) {
-	// validity checks (check conditions not covered by kingpin)
+	// validity checks (check conditions which are not covered by kingpin)
 	if len(*c.Reports) == 0 {
 		return nil, fmt.Errorf("At least one report is required")
 	}
@@ -58,14 +58,15 @@ func (c *cliFindCommand) Validate() (*FindCommand, error) {
 	cmd.ConfigOutput = *c.ConfigOutput
 	cmd.JSONOutput = *c.JSONOutput
 
-	// default values
-	envOverwrite, errOverwrite := envToBool("DUPFILES_OVERWRITE")
-	if errOverwrite == nil {
-		cmd.Overwrite = envOverwrite
-	}
+	// handle environment variables
 	envJSON, errJSON := envToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON
+	}
+	/// DUPFILES_OUTPUT was already handled
+	envOverwrite, errOverwrite := envToBool("DUPFILES_OVERWRITE")
+	if errOverwrite == nil {
+		cmd.Overwrite = envOverwrite
 	}
 
 	return cmd, nil

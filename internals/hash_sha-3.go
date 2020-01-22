@@ -12,8 +12,7 @@ import (
 // SHA3_512 implements the sponge construction based hash algorithm
 // invented by Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche (2008)
 type SHA3_512 struct {
-	h   hash.Hash
-	sum []byte
+	h hash.Hash
 }
 
 // NewSHA3_512 defines returns a properly initialized SHA3_512 instance
@@ -43,7 +42,6 @@ func (c *SHA3_512) ReadFile(filepath string) error {
 		return err
 	}
 
-	c.sum = c.h.Sum([]byte{})
 	return nil
 }
 
@@ -61,16 +59,16 @@ func (c *SHA3_512) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *SHA3_512) Digest() []byte {
-	return c.sum
+	return c.h.Sum([]byte{})
 }
 
 // HexDigest returns the hash state digest encoded in a hexadecimal string
 func (c *SHA3_512) HexDigest() string {
-	return hex.EncodeToString(c.sum)
+	return hex.EncodeToString(c.Digest())
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *SHA3_512) HashAlgorithm() string {
+func (c *SHA3_512) Name() string {
 	return "sha-3-512"
 }

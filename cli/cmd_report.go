@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -79,19 +78,12 @@ func newCLIReportCommand(app *kingpin.Application) *cliReportCommand {
 }
 
 func (c *cliReportCommand) Validate() (*ReportCommand, error) {
-	envBFS, errBFS := envToBool("DUPFILES_BFS")
-	envDFS, errDFS := envToBool("DUPFILES_DFS")
-	// TODO are boolean arguments properly propagated
-
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {
 		return nil, fmt.Errorf("basenode must not be empty")
 	}
 	if *c.DFS && *c.BFS {
 		return nil, fmt.Errorf("cannot accept --bfs and --dfs simultaneously")
-	}
-	if (errBFS == nil && envBFS) && (errDFS == nil && envDFS) {
-		return nil, fmt.Errorf("cannot accept env BFS and DFS simultaneously")
 	}
 	if *c.BasenameMode && *c.EmptyMode {
 		return nil, fmt.Errorf("cannot accept --basename-mode and --empty-mode simultaneously")
@@ -123,41 +115,42 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 	cmd.JSONOutput = *c.JSONOutput
 	cmd.Help = false
 
-	// default values
-	envOverwrite, errOverwrite := envToBool("DUPFILES_OVERWRITE")
-
-	if cmd.BaseNodeName == "" {
-		cmd.BaseNodeName = filepath.Base(cmd.BaseNode)
-	}
-	if errOverwrite == nil {
-		cmd.Overwrite = envOverwrite
-	}
-	if !cmd.BFS && !cmd.DFS {
-		if errBFS == nil {
-			cmd.BFS = envBFS
-		}
-		if errDFS == nil {
-			cmd.DFS = envDFS
-		}
-	}
-	envIPE, errIPE := envToBool("DUPFILES_IGNORE_PERM_ERRORS")
-	if errIPE == nil && !cmd.IgnorePermErrors {
-		cmd.IgnorePermErrors = envIPE
+	// handle environment variables
+	envDFS, errDFS := envToBool("DUPFILES_DFS")
+	if errDFS == nil {
+		cmd.DFS = envDFS
+		cmd.BFS = !envDFS
 	}
 	envEmpty, errEmpty := envToBool("DUPFILES_EMPTY_MODE")
-	if errEmpty == nil && !cmd.BasenameMode {
+	if errEmpty == nil {
 		cmd.EmptyMode = envEmpty
+		cmd.BasenameMode = !envEmpty
+	}
+	/// DUPFILES_HASH_ALGORITHM was already handled
+	envIPE, errIPE := envToBool("DUPFILES_IGNORE_PERM_ERRORS")
+	if errIPE == nil {
+		cmd.IgnorePermErrors = envIPE
+	}
+	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	if errJSON == nil {
+		cmd.JSONOutput = envJSON
+	}
+	/// DUPFILES_OUTPUT was already handled
+	envOverwrite, errOverwrite := envToBool("DUPFILES_OVERWRITE")
+	if errOverwrite == nil {
+		cmd.Overwrite = envOverwrite
 	}
 	if cmd.Workers == 0 {
 		if w, ok := envToInt("DUPFILES_WORKERS"); ok {
 			cmd.Workers = w
 		} else {
-			cmd.Workers = runtime.NumCPU()
+			cmd.Workers = countCPUs()
 		}
 	}
-	envJSON, errJSON := envToBool("DUPFILES_JSON")
-	if errJSON == nil {
-		cmd.JSONOutput = envJSON
+
+	// default values
+	if cmd.BaseNodeName == "" {
+		cmd.BaseNodeName = filepath.Base(cmd.BaseNode)
 	}
 
 	// validity check 2

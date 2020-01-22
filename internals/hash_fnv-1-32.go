@@ -11,8 +11,7 @@ import (
 // FNV1_32 implements the Fowler–Noll–Vo non-cryptographic hash function
 // invented by Glenn Fowler, Landon Curt Noll, and Kiem-Phong Vo (1991)
 type FNV1_32 struct {
-	h   hash.Hash
-	sum []byte
+	h hash.Hash
 }
 
 // NewFNV1_32 defines returns a properly initialized FNV1_32 instance
@@ -42,7 +41,6 @@ func (c *FNV1_32) ReadFile(filepath string) error {
 		return err
 	}
 
-	c.sum = c.h.Sum([]byte{})
 	return nil
 }
 
@@ -60,16 +58,16 @@ func (c *FNV1_32) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *FNV1_32) Digest() []byte {
-	return c.sum
+	return c.h.Sum([]byte{})
 }
 
 // HexDigest returns the hash state digest encoded in a hexadecimal string
 func (c *FNV1_32) HexDigest() string {
-	return hex.EncodeToString(c.sum)
+	return hex.EncodeToString(c.Digest())
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *FNV1_32) HashAlgorithm() string {
+func (c *FNV1_32) Name() string {
 	return "fnv-1-32"
 }

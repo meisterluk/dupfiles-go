@@ -10,8 +10,7 @@ import (
 
 // SHA512 implements the Merkle–Damgård structure based, cryptographic hash algorithm invented by NSA (2001)
 type SHA512 struct {
-	h   hash.Hash
-	sum []byte
+	h hash.Hash
 }
 
 // NewSHA512 defines returns a properly initialized SHA512 instance
@@ -41,7 +40,6 @@ func (c *SHA512) ReadFile(filepath string) error {
 		return err
 	}
 
-	c.sum = c.h.Sum([]byte{})
 	return nil
 }
 
@@ -59,16 +57,17 @@ func (c *SHA512) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *SHA512) Digest() []byte {
-	return c.sum
+	return c.h.Sum([]byte{})
+
 }
 
 // HexDigest returns the hash state digest encoded in a hexadecimal string
 func (c *SHA512) HexDigest() string {
-	return hex.EncodeToString(c.sum)
+	return hex.EncodeToString(c.Digest())
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *SHA512) HashAlgorithm() string {
+func (c *SHA512) Name() string {
 	return "sha-512"
 }

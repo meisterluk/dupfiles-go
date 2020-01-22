@@ -10,8 +10,7 @@ import (
 
 // SHA1 implements the former cryptographic hash function invented by the Capstone project (1993)
 type SHA1 struct {
-	h   hash.Hash
-	sum []byte
+	h hash.Hash
 }
 
 // NewSHA1 defines returns a properly initialized SHA1 instance
@@ -41,7 +40,6 @@ func (c *SHA1) ReadFile(filepath string) error {
 		return err
 	}
 
-	c.sum = c.h.Sum([]byte{})
 	return nil
 }
 
@@ -59,16 +57,16 @@ func (c *SHA1) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *SHA1) Digest() []byte {
-	return c.sum
+	return c.h.Sum([]byte{})
 }
 
 // HexDigest returns the hash state digest encoded in a hexadecimal string
 func (c *SHA1) HexDigest() string {
-	return hex.EncodeToString(c.sum)
+	return hex.EncodeToString(c.Digest())
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *SHA1) HashAlgorithm() string {
+func (c *SHA1) Name() string {
 	return "sha-1"
 }

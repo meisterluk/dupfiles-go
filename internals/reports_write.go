@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// NewReportWriter returns an freshly-initialized Report instance
 func NewReportWriter(filepath string) (*Report, error) {
 	report := new(Report)
 
@@ -24,6 +25,7 @@ func NewReportWriter(filepath string) (*Report, error) {
 	return report, nil
 }
 
+// HeadLine writes a headline to the report given the parameters provided
 func (r *Report) HeadLine(hashAlgorithm string, basenameMode bool, nodeName, basePath string) error {
 	mode := "E"
 	if basenameMode {
@@ -37,6 +39,7 @@ func (r *Report) HeadLine(hashAlgorithm string, basenameMode bool, nodeName, bas
 	return err
 }
 
+// TailLine writes a tailline to the report given the parameters provided
 func (r *Report) TailLine(digest []byte, nodeType byte, fileSize uint64, path string) error {
 	_, err := fmt.Fprintf(r.File, "%s %c %d %s\n",
 		hex.EncodeToString(digest),

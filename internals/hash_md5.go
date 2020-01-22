@@ -10,8 +10,7 @@ import (
 
 // MD5 implements the message-digest algorithm invented by Ronald Rivest (1991)
 type MD5 struct {
-	h   hash.Hash
-	sum []byte
+	h hash.Hash
 }
 
 // NewMD5 defines returns a properly initialized MD5 instance
@@ -41,7 +40,6 @@ func (c *MD5) ReadFile(filepath string) error {
 		return err
 	}
 
-	c.sum = c.h.Sum([]byte{})
 	return nil
 }
 
@@ -59,16 +57,16 @@ func (c *MD5) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *MD5) Digest() []byte {
-	return c.sum
+	return c.h.Sum([]byte{})
 }
 
 // HexDigest returns the hash state digest encoded in a hexadecimal string
 func (c *MD5) HexDigest() string {
-	return hex.EncodeToString(c.sum)
+	return hex.EncodeToString(c.Digest())
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *MD5) HashAlgorithm() string {
+func (c *MD5) Name() string {
 	return "md5"
 }

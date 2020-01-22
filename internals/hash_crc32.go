@@ -10,8 +10,7 @@ import (
 
 // CRC32 implements the cyclic redundancy check invented by W. Wesley Peterson (1961)
 type CRC32 struct {
-	h   hash.Hash32
-	sum uint32
+	h hash.Hash32
 }
 
 // NewCRC32 defines returns a properly initialized CRC32 instance
@@ -43,8 +42,6 @@ func (c *CRC32) ReadFile(filepath string) error {
 	if err != nil {
 		return err
 	}
-
-	c.sum = c.h.Sum32()
 	return nil
 }
 
@@ -62,11 +59,12 @@ func (c *CRC32) Reset() {
 
 // Digest returns the digest resulting from the hash state
 func (c *CRC32) Digest() []byte {
+	sum := c.h.Sum32()
 	return []byte{
-		byte(c.sum >> 24),
-		byte(c.sum >> 16),
-		byte(c.sum >> 8),
-		byte(c.sum >> 0),
+		byte(sum >> 24),
+		byte(sum >> 16),
+		byte(sum >> 8),
+		byte(sum >> 0),
 	}
 }
 
@@ -75,8 +73,8 @@ func (c *CRC32) HexDigest() string {
 	return hex.EncodeToString(c.Digest())
 }
 
-// HashAlgorithm returns the hash algorithm's name
+// Name returns the hash algorithm's name
 // in accordance with the dupfiles design document
-func (c *CRC32) HashAlgorithm() string {
+func (c *CRC32) Name() string {
 	return "crc32"
 }
