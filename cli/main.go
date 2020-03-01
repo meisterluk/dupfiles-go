@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/meisterluk/dupfiles-go/internals"
+	v1 "github.com/meisterluk/dupfiles-go/v1"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -157,10 +158,16 @@ func main() {
 		// TODO: implement continue option
 
 		// create report
+		// TODO reportSettings.Overwrite is not respected
 		rep, err := internals.NewReportWriter(reportSettings.Output)
 		if err != nil {
 			handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
+		// NOTE since we create a file descriptor for the output file here already,
+		//      we need to exclude it from the walk finding all paths.
+		//      We could move file descriptor creation to a later point, but I want
+		//      to catch FS writing issues early.
+		reportSettings.ExcludeTree = append(reportSettings.ExcludeTree, reportSettings.Output)
 
 		fullPath, err := filepath.Abs(reportSettings.BaseNode)
 		if err != nil {
@@ -361,11 +368,35 @@ func main() {
 			kingpin.FatalUsage(err.Error())
 		}
 
-		b, err := json.Marshal(versionSettings)
-		if err != nil {
-			fmt.Println("error:", err)
+		if versionSettings.ConfigOutput {
+			// config output is printed in JSON independent of versionSettings.JSONOutput
+			b, err := json.Marshal(versionSettings)
+			if err != nil {
+				handleError(err.Error(), 2, versionSettings.JSONOutput)
+				return
+			}
+			fmt.Println(string(b))
+			return
 		}
-		fmt.Println(string(b))
+
+		versionString := fmt.Sprintf("%d.%d.%d", v1.VERSION_MAJOR, v1.VERSION_MINOR, v1.VERSION_PATCH)
+
+		if !versionSettings.JSONOutput {
+			fmt.Println(versionString)
+
+		} else {
+			type output struct {
+				Version string `json:"version"`
+			}
+
+			b, err := json.Marshal(&output{versionString})
+			if err != nil {
+				handleError(err.Error(), 2, versionSettings.JSONOutput)
+				return
+			}
+			fmt.Println(string(b))
+			return
+		}
 
 	default:
 		kingpin.FatalUsage("unknown command")

@@ -23,7 +23,7 @@ func handleError(msg string, exitCode int, jsonOutput bool) {
 			fmt.Fprintln(os.Stderr, `{"error":"could not encode error message as JSON","exitcode":2}`)
 			os.Exit(2)
 		} else {
-			fmt.Fprintln(os.Stderr, jsonRepr)
+			fmt.Fprintln(os.Stderr, string(jsonRepr))
 			os.Exit(exitCode)
 		}
 	}

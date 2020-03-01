@@ -116,6 +116,7 @@ func byteDecode(basename string) (string, error) {
 	return basename, nil
 }
 
+// Given count bytes, represent the amount in a human-readable way
 func humanReadableBytes(count uint64) string {
 	bytes := float64(count)
 	units := []string{"bytes", "KiB", "MiB", "GiB", "TiB", "PiB"}

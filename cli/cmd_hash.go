@@ -127,6 +127,14 @@ func (c *cliHashCommand) Validate() (*HashCommand, error) {
 		}
 	}
 
+	// default values
+	if !cmd.DFS && !cmd.BFS {
+		cmd.DFS = true
+	}
+	if !cmd.EmptyMode && !cmd.BasenameMode {
+		cmd.BasenameMode = true
+	}
+
 	// validity check 2
 	if cmd.Workers <= 0 {
 		return nil, fmt.Errorf("expected --workers to be positive integer, is %d", cmd.Workers)

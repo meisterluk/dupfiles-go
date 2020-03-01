@@ -99,23 +99,25 @@ func hashNode(hash Hash, basenameMode bool, basePath string, data FileData) []by
 
 // walkDFS visit all subnodes of node at nodePath in DFS manner with respect to all parameters provided.
 // nodePath is relative to params.basePath. node is FileInfo of nodePath. params is uniform among all walk calls.
+// Returns whether excludeTree ignores this node (bool) and whether processing shall continue or not (error).
 // NOTE this implementation assumes that actual directory depths do not trigger a stackoverflow (on my system, the max depth is 26, so I should be fine)
-func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) error {
+func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, error) {
 	// an error occured somewhere ⇒ terminated prematurely & gracefully
 	if *params.shallStop {
-		return nil
+		return true, nil
 	}
 
 	// test exclusion trees
 	if contains(params.excludeTree, nodePath) {
-		return nil
+		return false, nil
 	}
 
 	if node.IsDir() {
 		fullPath := filepath.Join(params.basePath, nodePath)
+		numEntries := 0
 		entries, err := ioutil.ReadDir(fullPath)
 		if err != nil && !(params.ignorePermErrors && isPermissionError(err)) {
-			return err
+			return true, err
 		}
 
 		// DFS ⇒ descend into directories immediately
@@ -135,8 +137,12 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) error {
 				}
 			}
 
-			if err := walkDFS(filepath.Join(nodePath, entry.Name()), entry, params); err != nil {
-				return err
+			countNode, err := walkDFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			if err != nil {
+				return true, err
+			}
+			if countNode {
+				numEntries++
 			}
 		}
 
@@ -157,40 +163,45 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) error {
 				}
 			}
 
-			if err := walkDFS(filepath.Join(nodePath, entry.Name()), entry, params); err != nil {
-				return err
+			countNode, err := walkDFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			if err != nil {
+				return true, err
+			}
+			if countNode {
+				numEntries++
 			}
 		}
 
-		params.dirOut <- DirData{Path: nodePath, EntriesMissing: len(entries), Size: uint16(node.Size()), Digest: make([]byte, params.digestSize)}
+		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: make([]byte, params.digestSize)}
 	} else {
 		params.fileOut <- FileData{Path: nodePath, Type: determineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
 	}
 
 	// TODO: runtime.Gosched() ?
-	return nil
+	return true, nil
 }
 
 // walkBFS visit all subnodes of node at nodePath in BFS manner with respect to all parameters provided.
 // nodePath is relative to params.basePath. node is FileInfo of nodePath. params is uniform among all walk calls.
-// Returns whether processing shall continue or not.
+// Returns whether excludeTree ignores this node (bool) and whether processing shall continue or not (error).
 // NOTE this implementation assumes that actual directory depths do not trigger a stackoverflow (on my system, the max depth is 26, so I should be fine)
-func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) error {
+func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, error) {
 	// an error occured somewhere ⇒ terminated prematurely & gracefully
 	if *params.shallStop {
-		return nil
+		return true, nil
 	}
 
 	// test exclusion trees
 	if contains(params.excludeTree, nodePath) {
-		return nil
+		return false, nil
 	}
 
 	if node.IsDir() {
 		fullPath := filepath.Join(params.basePath, nodePath)
+		numEntries := 0
 		entries, err := ioutil.ReadDir(fullPath)
 		if err != nil && !(params.ignorePermErrors && isPermissionError(err)) {
-			return err
+			return true, err
 		}
 
 		// BFS ⇒ evaluate files first
@@ -210,8 +221,12 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) error {
 				}
 			}
 
-			if err := walkBFS(filepath.Join(nodePath, entry.Name()), entry, params); err != nil {
-				return err
+			countNode, err := walkBFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			if err != nil {
+				return true, err
+			}
+			if countNode {
+				numEntries++
 			}
 		}
 
@@ -232,18 +247,22 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) error {
 				}
 			}
 
-			if err := walkBFS(filepath.Join(nodePath, entry.Name()), entry, params); err != nil {
-				return err
+			countNode, err := walkBFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			if err != nil {
+				return true, err
+			}
+			if countNode {
+				numEntries++
 			}
 		}
 
-		params.dirOut <- DirData{Path: nodePath, EntriesMissing: len(entries), Size: uint16(node.Size()), Digest: make([]byte, params.digestSize)}
+		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: make([]byte, params.digestSize)}
 	} else {
 		params.fileOut <- FileData{Path: nodePath, Type: determineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
 	}
 
 	// TODO: runtime.Gosched() ?
-	return nil
+	return true, nil
 }
 
 // unitWalk visit all subnodes of node in DFS/BFS manner with respect to all parameters provided.
@@ -284,11 +303,12 @@ func unitWalk(node string, dfs bool, ignorePermErrors bool, excludeBasename, exc
 		errChan <- err
 		return
 	}
+
 	// actually traverse the file system
 	if dfs {
-		err = walkDFS(".", baseNodeInfo, &walkParams)
+		_, err = walkDFS(".", baseNodeInfo, &walkParams)
 	} else {
-		err = walkBFS(".", baseNodeInfo, &walkParams)
+		_, err = walkBFS(".", baseNodeInfo, &walkParams)
 	}
 	if err != nil {
 		errChan <- err
@@ -341,10 +361,66 @@ func unitHashDir(hashAlgorithm hashAlgo,
 	incompleteDir := make([]DirData, 0, 100)
 	var walkFinished, fileFinished bool
 
+	// Hashes are propagated to the parent directory of a file,
+	// but not more than 1 parent-level. This function is used
+	// internally to propagate hashes further up.
+	propagate := func(path string, digest []byte) {
+		node := path
+
+		for {
+			if node == "" || node == "." || node == "/" {
+				break
+			}
+			node = filepath.Dir(node)
+
+			// Case 1: digest makes node complete ⇒ propagate further up
+			// Case 2: node is still incomplete ⇒ stop propagation
+			// Case 3: node does not exist ⇒ stop propagation, we need to wait for the actual EntriesMissing value via unitWalk
+
+			found := false
+			stop := false
+			for i := 0; i < len(incompleteDir); i++ {
+				if node == incompleteDir[i].Path {
+					found = true
+					xorByteSlices(incompleteDir[i].Digest, digest)
+					incompleteDir[i].EntriesMissing--
+
+					// emit directory hash, if all hashes were provided
+					if incompleteDir[i].EntriesMissing == 0 {
+						// Case 1
+						digest = incompleteDir[i].Digest
+						outputFinal <- incompleteDir[i]
+						incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
+					} else {
+						stop = true
+					}
+				}
+			}
+
+			if stop {
+				break // Case 2
+			}
+
+			// Case 3
+			if !found {
+				d := make([]byte, len(digest))
+				copy(d, digest)
+				incompleteDir = append(incompleteDir, DirData{
+					Path: node,
+					// -1 is the initial value. It will be decremented until the actual number
+					// of required entries is added making EntriesMissing 0.
+					EntriesMissing: -1,
+					Digest:         d,
+				})
+				break
+			}
+		}
+	}
+
 LOOP:
 	// terminate if unitWalk AND unitFile have terminated.
 	// before that update incompleteDir until all entries are complete
-	// and emit complete ones it outputFinal
+	// and emit complete ones to outputFinal
 	for {
 		select {
 		case dirData, ok := <-inputWalk:
@@ -358,12 +434,14 @@ LOOP:
 						// emit directory hash, if all file hashes were provided
 						if incompleteDir[i].EntriesMissing == 0 {
 							outputFinal <- incompleteDir[i]
+							propagate(incompleteDir[i].Path, incompleteDir[i].Digest)
 							incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
 						}
 
 						continue LOOP
 					}
 				}
+
 				incompleteDir = append(incompleteDir, dirData)
 			} else {
 				walkFinished = true
@@ -384,6 +462,7 @@ LOOP:
 						// emit directory hash, if all file hashes were provided
 						if incompleteDir[i].EntriesMissing == 0 {
 							outputFinal <- incompleteDir[i]
+							propagate(incompleteDir[i].Path, incompleteDir[i].Digest)
 							incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
 						}
 
@@ -391,10 +470,14 @@ LOOP:
 					}
 				}
 
+				d := make([]byte, len(fileData.Digest))
+				copy(d, fileData.Digest)
 				incompleteDir = append(incompleteDir, DirData{
-					Path:           directory,
-					EntriesMissing: -1, // this is the initial value. It will be decremented until it will become 0 again
-					Digest:         fileData.Digest,
+					Path: directory,
+					// -1 is the initial value. It will be decremented until the actual number
+					// of required entries is added making EntriesMissing 0.
+					EntriesMissing: -1,
+					Digest:         d,
 				})
 			} else {
 				fileFinished = true
@@ -406,9 +489,15 @@ LOOP:
 		// TODO: runtime.Gosched() ?
 	}
 
+	if len(incompleteDir) > 0 {
+		errChan <- fmt.Errorf(`internal error: some directory was processed incompletely: %v`, incompleteDir)
+	}
+
 	close(outputFinal)
 }
 
+// unitFinal receives digests through the two channels inputFile and inputDir.
+// It converts entries to ReportTailLines and forwards them to the outputEntry channel.
 func unitFinal(inputFile <-chan FileData, inputDir <-chan DirData, outputEntry chan<- ReportTailLine, errChan chan<- error, wg *sync.WaitGroup) {
 	defer wg.Done()
 

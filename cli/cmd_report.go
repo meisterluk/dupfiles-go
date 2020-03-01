@@ -152,6 +152,12 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 	if cmd.BaseNodeName == "" {
 		cmd.BaseNodeName = filepath.Base(cmd.BaseNode)
 	}
+	if !cmd.DFS && !cmd.BFS {
+		cmd.DFS = true
+	}
+	if !cmd.EmptyMode && !cmd.BasenameMode {
+		cmd.BasenameMode = true
+	}
 
 	// validity check 2
 	if cmd.Workers <= 0 {

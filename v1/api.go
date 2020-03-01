@@ -1,10 +1,25 @@
 package v1
 
-const VERSION [3]int = [3]int{1, 0, 0}
+import "fmt"
 
-func GenerateReport(ReportParameters) error {}
-func ReadReport(path string) (ReportHead, []ReportTail, error) {}
-func WriteReport(path string, ReportHead, []ReportTail) error {}
-func SupportedHashAlgorithms() []string {}
-func HashOfNode(HashParameters) ([]byte, error)
+const VERSION_MAJOR = 1
+const VERSION_MINOR = 0
+const VERSION_PATCH = 0
+
+func GenerateReport(ReportParameters) error {
+	return fmt.Errorf(`not implemented yet`)
+}
+func ReadReport(path string) (ReportHead, []ReportTail, error) {
+	return ReportHead{}, make([]ReportTail, 0), fmt.Errorf(`not implemented yet`)
+}
+func WriteReport(path string, head ReportHead, tail []ReportTail) error {
+	return fmt.Errorf(`not implemented yet`)
+}
+func SupportedHashAlgorithms() []string {
+	return []string{}
+}
+func HashOfNode(HashParameters) ([]byte, error) {
+	return []byte{}, fmt.Errorf(`not implemented yet`)
+}
+
 //func TraverseNode(HashParameters, chan<- ReportTail) error
