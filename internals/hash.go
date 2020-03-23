@@ -123,6 +123,7 @@ func (h hashAlgo) Algorithm() Hash {
 	return defaultHash.Algorithm()
 }
 
+// HashAlgorithmFromString returns a hashAlgo instance, give the hash algorithm's name as a string
 func HashAlgorithmFromString(name string) (hashAlgo, error) {
 	name = strings.ToLower(name)
 	for _, algo := range SupportedHashAlgorithms() {

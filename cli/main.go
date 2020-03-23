@@ -264,11 +264,11 @@ func main() {
 			} else {
 				for entry := range dupEntries {
 					//log.Println("<finalized entry>")
-					fmt.Println(hex.EncodeToString(entry.Digest))
+					out := hex.EncodeToString(entry.Digest) + "\n"
 					for _, s := range entry.Set {
-						fmt.Println(`  ` + s.ReportFile + `: ` + s.Path)
+						out += `  ` + s.ReportFile + `: ` + s.Path + "\n"
 					}
-					fmt.Println("")
+					fmt.Println(out)
 					//log.Println("</finalized entry>")
 				}
 			}

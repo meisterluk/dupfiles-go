@@ -6,9 +6,14 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
+	"path/filepath"
+	"runtime"
+	"sync"
 )
 
+const ExpectedMatchesPerNode = 4
+
+/*
 // lineToDigestFound is a simple routine to extract data from a tail line
 // without instantiating an entire parser. line must not contain a line feed
 // or carriage return.
@@ -162,6 +167,19 @@ func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]digestFound, erro
 
 	return results, nil
 }
+*/
+
+// MeanBytesPerLine gives an empirical statistic:
+// one tail line in a report file requires 119 bytes in average
+const MeanBytesPerLine = 119
+
+type hierarchyNode struct {
+	basename        string
+	digestFirstByte byte
+	digestIndex     int
+	parent          *hierarchyNode
+	children        []hierarchyNode
+}
 
 // FindDuplicates finds duplicate nodes in report files. The results are sent to outChan.
 // Any errors are sent to errChan. At termination outChan and errChan are closed.
@@ -169,24 +187,64 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	defer close(outChan)
 	defer close(errChan)
 
-	// TODO: a shortcut that determines whether the roots of all files are the same
+	if len(reportFiles) > 16 {
+		errChan <- fmt.Errorf(`Sorry, this implementation does not support more than 16 report files in parallel`)
+		close(errChan)
+		close(outChan)
+		return
+	}
+
+	// NOTE thought experiment:
+	//   2 of 3 files contain the same digest for a directory node N. Can we skip any subnodes of N?
+	//   No, the third [actually not only the third!] node might contain a match in some subdirectory of N.
+	// NOTE thought experiment:
+	//   all files have the same directory node. Can I skip subentries?
+	//   No, there might be more matches.
+
+	// NOTE implementation approaches:
+
+	// (1) Ad quick speedups in special cases
+	// APPROACH a shortcut that determines whether the roots of all files are the same
 	//   thus, start a second goroutine that checks whether all the digests “.” of the files are the same
-	// TODO: a separate goroutine could read the last thirty directory digests
+	// APPROACH a separate goroutine could read the last thirty directory digests (because they are most likely the most top ones)
 	//   and tell whether any are the same. If so, they could give a preinformation.
-	// TODO sort digests, then lookup is much faster?
-	// TODO performance improvement by some map data structures?
-	// APPROACH find matches first to reduce the total amount of data
+
+	// (2) Generic approaches requiring tests [i.e. performance tests for bulk data]
+	// APPROACH sort digests ⇒ identifies duplicates by locality
+	// APPROACH simply use GNU coreutils sort to sort line
+	// APPROACH linear data structure to apply insertion sort ⇒ identifies duplicates by locality
+	// APPROACH performance improvement by some map data structures ⇒ amortized constant time lookup
+	// APPROACH use file size and MeanBytesPerLine to estimate #(entries) ⇒ dispatch above-mentioned approach based on size
+
+	// (3) Specific substrategies
+	// APPROACH find "any duplicate of this digest exists?" first ⇒ reduce the total amount of data
+	// APPROACH do not store all digests because it is too much data. Instead pick one digest and a
+	//   separate goroutine always has an open file descriptor and seeks to find the digest in the file.
+	//   Then the goroutine returns the duplicate's line. Requires good timing balance between requester and seeker.
 	// APPROACH create a tree of basenames, yield leaves first and if a matching node is found,
 	//   bubble it up until the highest matching parent node is found.
-	// APPROACH simply sorting report file lines might be faster than my implementation?
+	// APPROACH evaluate within-same-node duplicates first and intra-node duplicates later
+	//   → might allow some optimizations? → optimizations yet unclear
+	// APPROACH size of hash algorithm tells how much memory might be required
+	//   → might allow improved strategy → strategy yet unclear
 
-	// TODO handle files, find major parent
+	// NOTE I think the current implementation looses a lot of time to evaluate the highest node
+	//      (build tree → matching → bubbling → reporting). Isn't there some easier way to access the parent?
 
-	// Step 0: check that parameterization is consistent
+	var totalFileSize uint64
+
+	// Step 1: check that parameterization is consistent
 	var refVersion uint16
 	var refHashAlgorithm string
 	var refBasenameMode bool
 	for _, reportFile := range reportFiles {
+		stat, err := os.Stat(reportFile)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		totalFileSize += uint64(stat.Size())
+
 		rep, err := NewReportReader(reportFile)
 		if err != nil {
 			errChan <- err
@@ -227,231 +285,445 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		errChan <- err
 		return
 	}
-	digestSize := algo.DigestSize()
+	digestSizeI := algo.DigestSize()
+	digestSize := uint64(digestSizeI)
 	basenameString := "basename"
 	if !refBasenameMode {
 		basenameString = "empty"
 	}
-	log.Printf("check for consistent metadata passed: version %d, hash algo %s, and %s mode\n", refVersion, refHashAlgorithm, basenameString)
+	log.Printf("Step 1 of 5 finished: metadata is consistent: version %d, hash algo %s, and %s mode\n", refVersion, refHashAlgorithm, basenameString)
 
-	// Setup of a verifier that is used in Step 2
-	type match struct {
-		digest        string
-		reportIndices []int
+	// Step 2: read all digests into a byte array with entries "digest byte array with size of digests ‖ count dups with size 1 byte"
+	// NOTE "count dups" is "digest occurences - 1"
+	estimatedNumEntries := totalFileSize / uint64(MeanBytesPerLine)
+	if estimatedNumEntries < 2 {
+		estimatedNumEntries = 2
 	}
-	verifierTerminated := make(chan bool)
-	verifierIsOkay := true
-	toVerify := make(chan match)
-	go func() {
-		defer recover()
+	memoryRequired := estimatedNumEntries * (digestSize + 1)
+	log.Printf("Step 2 of 5 started: reading all digests into memory\n")
+	// TODO it is not difficult to get the actual number of entries, right? ⇒ accurate data/estimate
+	log.Printf("total file size %d bytes ⇒ estimated %s of main memory required\n", digestSize, humanReadableBytes(memoryRequired))
 
-		// open all files
-		reportFileDescriptors := make([]*os.File, len(reportFiles))
-		for i, reportFile := range reportFiles {
-			fd, e := os.Open(reportFile)
-			if e != nil {
-				errChan <- e
-				verifierIsOkay = false
-				continue
-			}
+	var data [256][]byte
+	entriesFinished := uint64(0)
+	for i := 0; i < 256; i++ {
+		data[i] = make([]byte, 0, estimatedNumEntries>>8)
+	}
 
-			defer fd.Close()
-			reportFileDescriptors[i] = fd
+	percentages := [9]uint64{
+		estimatedNumEntries / 10,
+		(estimatedNumEntries / 10) * 2,
+		(estimatedNumEntries / 10) * 3,
+		(estimatedNumEntries / 10) * 4,
+		(estimatedNumEntries / 10) * 5,
+		(estimatedNumEntries / 10) * 6,
+		(estimatedNumEntries / 10) * 7,
+		(estimatedNumEntries / 10) * 8,
+		(estimatedNumEntries / 10) * 9,
+	}
 
-			// TODO: runtime.Gosched() ?
-		}
-
-		// verify all matches received of the non-closed channel
-		for thisMatch := range toVerify {
-			clusters := make([][]int, 0, 4)
-
-			// file descriptors might not be properly initialized
-			// we cannot proceed and expect toVerify to be closed externally soon
-			if !verifierIsOkay {
-				continue
-			}
-
-			// we received an unverified match.
-			// we look for the hash in the report file and read it as ReportTailLine.
-			// if they match for any subset of the match, we report it as verified match
-			expectedLineMatches := 2 * len(thisMatch.reportIndices) // difficult to estimate
-			lines := make([]digestFound, 0, expectedLineMatches)
-
-			for reportID, reportIndex := range thisMatch.reportIndices {
-				linesInReport, err := findDigestMatchesInFile(reportFileDescriptors[reportIndex], thisMatch.digest)
-				if err != nil {
-					errChan <- err
-					verifierIsOkay = false
-					continue
-				}
-				for i := 0; i < len(linesInReport); i++ {
-					linesInReport[i].ReportIndex = reportID
-					lines = append(lines, linesInReport[i])
-				}
-			}
-
-			/*log.Printf(`found %d matches for %s`, len(lines), thisMatch.digest)
-			for _, line := range lines {
-				log.Printf(`  %s, line %d: %s`, reportFiles[line.ReportIndex], line.LineNo, line.Path)
-			}*/
-
-			// We need to cluster the given lines.
-			// Two lines belong to the same cluster if they have the same (hash obviously and same) file size and node type.
-			for i, tailLine := range lines {
-				fitsTo := -1
-			CLUSTER:
-				for clusterIndex, cluster := range clusters {
-					for _, index := range cluster {
-						if tailLine.FileSize == lines[index].FileSize && tailLine.NodeType == lines[index].NodeType {
-							fitsTo = clusterIndex
-							break CLUSTER
-						}
-					}
-				}
-				if fitsTo == -1 {
-					// create a new cluster
-					cluster := make([]int, 0, 4)
-					cluster = append(cluster, i)
-					clusters = append(clusters, cluster)
-					continue
-				}
-
-				// add to existing cluster
-				clusters[fitsTo] = append(clusters[fitsTo], i)
-			}
-
-			//log.Println(`evaluated clusters:`, clusters)
-
-			for _, cluster := range clusters {
-				if len(cluster) <= 1 {
-					// if only one item is in a cluster, it does not show equivalence to any other
-					// thus, drop it
-					continue
-				}
-
-				items := make([]DupOutput, 0, len(cluster))
-				for _, index := range cluster {
-					tailLine := lines[index]
-					items = append(items, DupOutput{
-						ReportFile: reportFiles[tailLine.ReportIndex],
-						Lineno:     tailLine.LineNo,
-						Path:       tailLine.Path,
-					})
-				}
-
-				// TODO should not go to outChan, contains only non-hierarchical directory hashes
-				outChan <- DuplicateSet{
-					Digest: lines[0].HashValue,
-					Set:    items,
-				}
-			}
-
-			// TODO: runtime.Gosched() ?
-		}
-
-		verifierTerminated <- true
-		return
-	}()
-
-	// Step 1: Read digests of all directories
-	digests := make([]byte, 0, 256*digestSize)
-	digestReportSplit := make([]int, 0, len(reportFiles))
+	var totalNumEntries uint64
+	var totalUniqueDigests uint64
 	for _, reportFile := range reportFiles {
-		// open reportFile
+		log.Printf("reading '%s' …\n", reportFile)
 		rep, err := NewReportReader(reportFile)
 		if err != nil {
 			errChan <- err
-			close(toVerify)
 			return
 		}
-
 		for {
-			// read each tail line
 			tail, err := rep.Iterate()
 			if err == io.EOF {
 				break
 			}
 			if err != nil {
-				errChan <- err
 				rep.Close()
-				close(toVerify)
+				errChan <- err
 				return
 			}
+			totalNumEntries++
 
-			// consider only directories
-			if tail.NodeType != 'D' {
-				continue
-			}
+			digestSuffix := tail.HashValue[1:len(tail.HashValue)]
+			digestList := data[int(tail.HashValue[0])]
+			found := false
+			// -1+1 ⇒ -1 because of first-byte-dispatch and +1 because of dups-byte
+			for i := 0; i*(digestSizeI-1+1) < len(digestList); i++ {
+				itemDigestSuffix := digestList[i*(digestSizeI-1+1) : (i+1)*(digestSizeI-1+1)-1]
+				if eqByteSlices(itemDigestSuffix, digestSuffix) {
+					found = true
 
-			// store digest
-			digests = append(digests, tail.HashValue...)
-		}
-
-		rep.Close()
-		digestReportSplit = append(digestReportSplit, len(digests))
-
-		// TODO: runtime.Gosched() ?
-	}
-	countDigests := len(digests) / digestSize
-	log.Printf("all %d directory digests read … finding duplicates now", countDigests)
-
-	// Step 2: Find any hashes occuring at least twice
-	for a := 0; a < countDigests; a++ {
-		digest := digests[int(a)*digestSize : int(a+1)*digestSize]
-
-		// collect indices of digests that match
-		occIndices := make([]uint32, 1, 32)
-		occIndices[0] = uint32(a)
-	SECOND:
-		for b := a + 1; b < countDigests; b++ {
-			for i := 0; i < digestSize; i++ {
-				if digests[a*digestSize+i] != digests[b*digestSize+i] {
-					continue SECOND
-				}
-			}
-			occIndices = append(occIndices, uint32(b))
-		}
-		if len(occIndices) <= 1 {
-			continue
-		}
-
-		// for each match, determine the index of the corresponding reportFile
-		// (but store the index only once ⇒ set)
-		occIndicesReportSet := make([]int, 0, len(occIndices))
-		for _, index := range occIndices {
-			for i, end := range digestReportSplit {
-				start := 0
-				if i > 0 {
-					start = digestReportSplit[i-1]
-				}
-				if uint32(start) <= index && index < uint32(end) && (len(occIndicesReportSet) == 0 || occIndicesReportSet[len(occIndicesReportSet)-1] != i) {
-					occIndicesReportSet = append(occIndicesReportSet, i)
+					// set dups byte to "min(dups + 1, 127)".
+					dups := uint(digestList[(i+1)*(digestSizeI-1+1)-1])
+					if dups != 127 {
+						dups++
+					}
+					if itemDigestSuffix[0] == 0x61 && itemDigestSuffix[1] == 0x3b && itemDigestSuffix[2] == 0x82 {
+						// TODO remove
+						fmt.Println("assigning dups", dups, "to", hex.EncodeToString(itemDigestSuffix))
+					}
+					digestList[(i+1)*(digestSizeI-1+1)-1] = byte(dups)
 					break
 				}
 			}
+			if !found {
+				first := int(tail.HashValue[0])
+				data[first] = append(data[first], digestSuffix...)
+				data[first] = append(data[first], 0)
+				totalUniqueDigests++
+				// INVARIANT digests are unique within data ⇒ (first-byte, index) uniquely identifies a digest
+			}
+
+			entriesFinished++
+			for p, threshold := range percentages {
+				if entriesFinished == threshold {
+					log.Printf("about %d%% of entries read …\n", p*10+10)
+				}
+			}
 		}
-
-		log.Printf(`digest %s ⇒ %d occurences among %d report files`, hex.EncodeToString(digest), len(occIndices), len(occIndicesReportSet))
-
-		// a tiny helper: if the verifier signals it is not okay,
-		// then stop sending verification tasks
-		if !verifierIsOkay {
-			break
+		rep.Close()
+	}
+	for i := 0; i < 256; i++ {
+		// test some invariant
+		if len(data[i])%(digestSizeI-1+1) != 0 {
+			panic("internal error: digest storage broken")
 		}
+	}
+	// at this point, "data" must only be accessed read-only
+	log.Printf("Step 2 of 5 finished: reading all digests into memory\n")
 
-		// Matches show that digests are equivalent.
-		// Now the verifier determines whether they are actually the same nodes (i.e. check filesize).
-		// If so, it will report the result to the outChan.
-		// NOTE matching is some stop-and-go operation, verifying is some stop-and-go operation.
-		//      Thus, it seems intuitive to do this concurrently.
-		toVerify <- match{
-			digest:        hex.EncodeToString(digest),
-			reportIndices: occIndicesReportSet,
+	// Step 3: identify digests occuring at least twice
+	// NOTE remove all entries with "dups = 0" and shift successive entries to lowest possible index
+	log.Printf("Step 3 of 5 started: remove non-duplicate digests from memory\n")
+	finishedNumUniqueDigests := uint64(0)
+	numDupDigests := uint64(0)
+	for i := 0; i < 256; i++ {
+		actualEnd := 0
+		for j := 0; j*(digestSizeI-1+1) < len(data[i]); j++ {
+			dups := data[i][(digestSizeI-1+1)*(j+1)-1]
+			if j == actualEnd {
+				// increment actualEnd, but don't copy data to save time
+				actualEnd++
+			} else if dups != 0 {
+				copy(
+					data[i][(digestSizeI-1+1)*actualEnd:(digestSizeI-1+1)*(actualEnd+1)],
+					data[i][(digestSizeI-1+1)*j:(digestSizeI-1+1)*(j+1)],
+				)
+				actualEnd++
+			}
+			finishedNumUniqueDigests++
 		}
+		numDupDigests += uint64(actualEnd)
+		data[i] = data[i][0 : (digestSizeI-1+1)*actualEnd]
+		if i%8 == 0 {
+			ratio := 100.0 * float64(finishedNumUniqueDigests) / float64(totalUniqueDigests)
+			log.Printf("finished %.2f%%\n", ratio)
+		}
+	}
+	if finishedNumUniqueDigests != totalUniqueDigests {
+		panic(fmt.Sprintf("internal memory: #(finished unique digests) != #(total unique digests); %d != %d", finishedNumUniqueDigests, totalUniqueDigests))
+	}
+	for i := 0; i < 256; i++ {
+		// test some invariant
+		if len(data[i])%(digestSizeI-1+1) != 0 {
+			panic("internal error: digest storage after reduction is broken")
+		}
+	}
+	runtime.GC() // hopefully free some memory
+	log.Printf("Step 3 of 5 finished: removed %d non-duplicate digests from memory\n", totalNumEntries-numDupDigests)
 
-		// TODO: runtime.Gosched() ?
+	// Step 4: Build a hierarchical [filesystem] tree per reportFile limited to duplicates.
+	//         Nodes are references to data.
+	log.Printf("Step 4 of 5 started: build filesystem tree of duplicates\n")
+
+	trees := make([]*hierarchyNode, 0, len(reportFiles))
+	for _, reportFile := range reportFiles {
+		log.Printf("reading '%s' …\n", reportFile)
+		rootNode := new(hierarchyNode)
+		rootNode.parent = rootNode
+		rootNode.children = make([]hierarchyNode, 0, 8)
+
+		rep, err := NewReportReader(reportFile)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		for {
+			tail, err := rep.Iterate()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				rep.Close()
+				errChan <- err
+				return
+			}
+
+			// ask data: does this node have a duplicate?
+			index := -1
+			digestList := data[tail.HashValue[0]]
+			for i := 0; i*(digestSizeI-1+1) < len(digestList); i++ {
+				if eqByteSlices(tail.HashValue[1:len(tail.HashValue)], digestList[i*(digestSizeI-1+1):(i+1)*(digestSizeI-1+1)-1]) {
+					index = i
+					break
+				}
+			}
+			if index == -1 {
+				continue
+			}
+
+			// is duplicate ⇒ add to tree
+			components := pathSplit(tail.Path)
+			currentNode := rootNode
+			for _, component := range components {
+				// traverse into correct component
+				found := false
+				for i := range currentNode.children {
+					if currentNode.children[i].basename == component {
+						found = true
+						currentNode = &currentNode.children[i]
+						break
+					}
+				}
+				if !found {
+					currentNode.children = append(currentNode.children, hierarchyNode{
+						basename: component,
+						parent:   currentNode,
+						children: make([]hierarchyNode, 0, 8),
+					})
+					currentNode = &currentNode.children[len(currentNode.children)-1]
+				}
+			}
+			currentNode.digestFirstByte = tail.HashValue[0]
+			currentNode.digestIndex = index
+		}
+		rep.Close()
+
+		trees = append(trees, rootNode)
+	}
+	var dumpTree func(*hierarchyNode, *[256][]byte, int)
+	dumpTree = func(node *hierarchyNode, data *[256][]byte, indent int) {
+		for i := 0; i < indent; i++ {
+			fmt.Print("  ")
+		}
+		fmt.Printf("%s (parent %p) %s%s and %d child(ren)\n", node.basename, node.parent, hex.EncodeToString([]byte{node.digestFirstByte}), hex.EncodeToString(data[node.digestFirstByte][digestSizeI*node.digestIndex:digestSizeI*node.digestIndex+digestSizeI-1]), len(node.children))
+		for c := 0; c < len(node.children); c++ {
+			dumpTree(&node.children[c], data, indent+1)
+		}
+	}
+	for i := range trees {
+		dumpTree(trees[i], &data, 0)
+	}
+	// at this point, "trees" must only be accessed read-only
+	log.Printf("Step 4 of 5 finished: filesystem tree of duplicates was built\n")
+
+	// Step 5: traverse tree in DFS and find highest duplicate nodes in tree to report them
+	log.Printf("Step 5 of 5 started: traverse tree in DFS and find highest duplicate nodes\n")
+
+	// we visit *every node* in DFS
+	var wg sync.WaitGroup
+	for t, tree := range trees {
+		for refNode := range traverseTree(tree, &data, digestSizeI) {
+			matches := make([]*hierarchyNode, 0, ExpectedMatchesPerNode)
+
+			// find all nodes with matching digest
+			stopSearch := false
+			fmt.Println(data[refNode.digestFirstByte][refNode.digestIndex*(digestSizeI-1+1)+digestSizeI]) // TODO just debug
+			expectedMatches := int(data[refNode.digestFirstByte][refNode.digestIndex*(digestSizeI-1+1)+digestSizeI]) & 0x7F
+
+			for match := range matchTree(trees, refNode, &data, digestSizeI, &stopSearch) {
+				if refNode == match {
+					continue
+				}
+				matches = append(matches, match)
+
+				if len(matches) == expectedMatches && expectedMatches != 127 {
+					stopSearch = true
+				}
+			}
+
+			fmt.Printf("found %d matches, expected %d, for %s with %s%s\n", len(matches), expectedMatches, refNode.basename, hex.EncodeToString([]byte{refNode.digestFirstByte}), hex.EncodeToString(data[refNode.digestFirstByte][refNode.digestIndex*digestSizeI:refNode.digestIndex*digestSizeI+digestSizeI-1]))
+
+			if len(matches) < 2 {
+				times := fmt.Sprintf("%d times", expectedMatches+1)
+				if expectedMatches == 127 {
+					times = "many times"
+				}
+				start := refNode.digestIndex * (digestSizeI - 1 + 1)
+				digestSuffix := data[refNode.digestFirstByte][start : start+digestSizeI-1]
+				panic(fmt.Sprintf("internal error: digest %s%s occuring %s found only %d time(s)",
+					hex.EncodeToString([]byte{refNode.digestFirstByte}),
+					hex.EncodeToString(digestSuffix),
+					times,
+					len(matches),
+				))
+			}
+
+			// bubble up matches and report equivalence sets
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				//bubbleAndReport(matches, &data, outChan, digestSizeI, reportFiles[t])
+			}()
+			log.Printf("finished node '%s' in %s", refNode.basename, reportFiles[t])
+		}
+		log.Printf("finished traversal of every node in %s", reportFiles[t])
 	}
 
-	close(toVerify)
-	<-verifierTerminated
+	log.Printf("finished traversal, but didn't finish matching yet")
+	wg.Wait()
+	log.Printf("Step 5 of 5 finished: traversed tree in DFS and found highest duplicate nodes\n")
+}
+
+// traverseTree traverses the given tree defined by the root node
+// and emit all nodes starting with the leaves.
+func traverseTree(rootNode *hierarchyNode, data *[256][]byte, digestSizeI int) <-chan *hierarchyNode {
+	outChan := make(chan *hierarchyNode)
+
+	var recur func(*hierarchyNode)
+	recur = func(node *hierarchyNode) {
+		for _, child := range node.children {
+			// do not traverse it, if this digest was already analyzed
+			disabled := int(data[child.digestFirstByte][child.digestIndex*(digestSizeI-1+1)+digestSizeI]) & 128
+			if disabled > 0 {
+				continue
+			}
+
+			// traverse into child
+			outChan <- &child
+			recur(&child)
+		}
+	}
+
+	go func() {
+		defer close(outChan)
+		recur(rootNode)
+		outChan <- rootNode
+	}()
+	return outChan
+}
+
+// matchTree traverses all trees and emits any equivalent nodes of refNode.
+// NOTE this function traverses all trees simultaneously.
+// NOTE this function also returns refNode.
+func matchTree(trees []*hierarchyNode, refNode *hierarchyNode, data *[256][]byte, digestSizeI int, stop *bool) <-chan *hierarchyNode {
+	var wg sync.WaitGroup
+	outChan := make(chan *hierarchyNode)
+
+	nDigestSuffix := data[refNode.digestFirstByte][refNode.digestIndex*(digestSizeI-1+1) : (refNode.digestIndex+1)*(digestSizeI-1+1)-1]
+
+	var recur func(*hierarchyNode)
+	recur = func(node *hierarchyNode) {
+		for i := range node.children {
+			child := &node.children[i]
+
+			// compare digests
+			if child.digestFirstByte == refNode.digestFirstByte {
+				cDigestSuffix := data[child.digestFirstByte][child.digestIndex*(digestSizeI-1+1) : child.digestIndex*(digestSizeI-1+1)+digestSizeI-1]
+				if len(nDigestSuffix) != len(cDigestSuffix) {
+					panic(fmt.Sprintf("internal error: len(nDigestSuffix) != len(cDigestSuffix); %d != %d", len(nDigestSuffix), len(cDigestSuffix)))
+				}
+				if eqByteSlices(cDigestSuffix, nDigestSuffix) {
+					outChan <- child
+				}
+			}
+
+			// stop if maximum number of matches was reached
+			if *stop {
+				return
+			}
+
+			// traverse into child
+			recur(child)
+		}
+	}
+
+	go func() {
+		defer close(outChan)
+		for _, tree := range trees {
+			wg.Add(1)
+			go func(tree *hierarchyNode) {
+				recur(tree)
+				wg.Done()
+			}(tree)
+		}
+
+		wg.Wait()
+	}()
+
+	return outChan
+}
+
+// bubbleAndReport applies the bubbling algorithm and then reports the resulting nodes.
+// Bubbling is the act of exchanging matches with their parents if at least two matches
+// share the same parent. They are collected in clusters and the algorithm is called
+// recursively. A cluster is a set of nodes sharing the same digest.
+func bubbleAndReport(matches []*hierarchyNode, data *[256][]byte, outChan chan<- DuplicateSet, digestSize int, reportFile string) {
+	if len(matches) < 2 {
+		panic("internal error: there must be at least 2 matches")
+	}
+
+	parentClusters := make([][]*hierarchyNode, 0, 4)
+	allAreSingletons := true
+	for _, match := range matches {
+		parent := (*match).parent
+
+		added := false
+		for _, cluster := range parentClusters {
+			if cluster[0].digestFirstByte == parent.digestFirstByte && cluster[0].digestIndex == parent.digestIndex {
+				cluster = append(cluster, parent)
+				added = true
+				allAreSingletons = false
+				break
+			}
+		}
+
+		if !added {
+			parentClusters = append(parentClusters, make([]*hierarchyNode, 0, len(matches)))
+			parentClusters[len(parentClusters)-1] = append(parentClusters[len(parentClusters)-1], parent)
+		}
+	}
+
+	// none of the parent digests match ⇒ emit all && abort bubbling
+	if allAreSingletons {
+		reportDuplicates(matches, data, outChan, digestSize, reportFile)
+		return
+	}
+
+	// some of the parent digests match ⇒ emit all && recurse with 2-or-more clusters
+	reportDuplicates(matches, data, outChan, digestSize, reportFile)
+	for i := 0; i < len(parentClusters); i++ {
+		if len(parentClusters[i]) >= 2 {
+			bubbleAndReport(parentClusters[i], data, outChan, digestSize, reportFile)
+		}
+	}
+}
+
+func reportDuplicates(matches []*hierarchyNode, data *[256][]byte, outChan chan<- DuplicateSet, digestSize int, reportFile string) {
+	if len(matches) == 0 {
+		panic("internal error: matches is empty")
+	}
+
+	// collect digest
+	digest := make([]byte, 0, digestSize)
+	digest = append(digest, matches[1].digestFirstByte)
+	digest = append(digest, data[matches[1].digestFirstByte][matches[1].digestIndex*(digestSize-1+1):matches[1].digestIndex*(digestSize-1+1)+digestSize]...)
+
+	outputs := make([]DupOutput, 0, len(matches))
+	for _, match := range matches {
+		approximatePath := (*match).basename
+		node := match
+		for {
+			if node.parent == node {
+				break
+			}
+			node = node.parent
+			approximatePath = node.basename + string(filepath.Separator) + approximatePath
+		}
+		outputs = append(outputs, DupOutput{ReportFile: reportFile, Path: approximatePath})
+	}
+
+	outChan <- DuplicateSet{
+		Digest: digest,
+		Set:    outputs, // TODO: fetch data from file again?
+	}
 }

@@ -149,6 +149,30 @@ func determineDepth(path string) uint32 {
 	return uint32(strings.Count(p, string(filepath.Separator)))
 }
 
+// pathSplit takes a filesystem path and splits it into individual components
+func pathSplit(path string) []string {
+	componentsRev := make([]string, 0, 8)
+	// ASSUMPTION max depth 50
+	for i := 0; i < 50; i++ {
+		dir, file := filepath.Split(path)
+		componentsRev = append(componentsRev, file)
+		if dir == "" {
+			break
+		}
+		if len(dir) > 0 && (dir[len(dir)-1] == '/' || dir[len(dir)-1] == '\\') {
+			dir = dir[0 : len(dir)-1]
+		}
+		path = dir
+	}
+
+	components := make([]string, len(componentsRev))
+	for i := 0; i < len(componentsRev); i++ {
+		components[i] = componentsRev[len(componentsRev)-1-i]
+	}
+
+	return components
+}
+
 // determineNodeType obviously determines the node type for a give file represented by its os.FileInfo
 func determineNodeType(stat os.FileInfo) byte {
 	mode := stat.Mode()
