@@ -126,6 +126,11 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			tail.FileSize = uint64(fileSize)
 
 			tail.Path = string(groups[4])
+			if tail.Path == "." {
+				// the external representation of the root is "."
+				// the internal representation of the root is ""
+				tail.Path = ""
+			}
 			tailLineRead = true
 		}
 

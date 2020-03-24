@@ -49,6 +49,12 @@ func eqByteSlices(as, bs []byte) bool {
 
 // byteEncode implements the byte encoding defined in the design document
 func byteEncode(basename string) string {
+	if basename == "" {
+		// "" is the internal representation of the root
+		// it's external representation is "."
+		return "."
+	}
+
 	if utf8.ValidString(basename) {
 		// only individual characters need to be encoded
 		re := regexp.MustCompile(`\\{1,}`)
@@ -149,16 +155,32 @@ func determineDepth(path string) uint32 {
 	return uint32(strings.Count(p, string(filepath.Separator)))
 }
 
+// dir returns the directory component of a given filepath (similar to filepath.Dir).
+// NOTE internally, the root node is represented as ""; not "." or "/"
+func dir(path string) string {
+	path = filepath.Dir(path)
+	if path == "." {
+		path = ""
+	}
+	return path
+}
+
 // pathSplit takes a filesystem path and splits it into individual components
 func pathSplit(path string) []string {
+	if path == "." {
+		return []string{""}
+	}
 	componentsRev := make([]string, 0, 8)
 	// ASSUMPTION max depth 50
 	for i := 0; i < 50; i++ {
 		dir, file := filepath.Split(path)
-		componentsRev = append(componentsRev, file)
+		if file != "" {
+			componentsRev = append(componentsRev, file)
+		}
 		if dir == "" {
 			break
 		}
+		// TODO is checking for forward & backward slash portable?
 		if len(dir) > 0 && (dir[len(dir)-1] == '/' || dir[len(dir)-1] == '\\') {
 			dir = dir[0 : len(dir)-1]
 		}

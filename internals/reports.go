@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// ReportHeadLine contains data stored in the head line of a report file
 type ReportHeadLine struct {
 	Version       [3]uint16
 	Timestamp     time.Time
@@ -14,6 +15,7 @@ type ReportHeadLine struct {
 	BasePath      string
 }
 
+// ReportTailLine contains data stored in a tail line of a report file
 type ReportTailLine struct {
 	HashValue []byte
 	NodeType  byte
@@ -21,6 +23,7 @@ type ReportTailLine struct {
 	Path      string
 }
 
+// Report represents a report file to be worked with (reading or writing)
 type Report struct {
 	File     *os.File
 	FilePath string

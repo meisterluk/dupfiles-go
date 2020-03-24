@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sync"
 )
 
@@ -172,12 +173,14 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			}
 		}
 
+		// TODO initialize digest with hashed basename in basename mode
+
 		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: make([]byte, params.digestSize)}
 	} else {
 		params.fileOut <- FileData{Path: nodePath, Type: determineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
 	}
 
-	// TODO: runtime.Gosched() ?
+	runtime.Gosched() // TODO review
 	return true, nil
 }
 
@@ -256,12 +259,14 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			}
 		}
 
+		// TODO initialize digest with hashed basename in basename mode
+
 		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: make([]byte, params.digestSize)}
 	} else {
 		params.fileOut <- FileData{Path: nodePath, Type: determineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
 	}
 
-	// TODO: runtime.Gosched() ?
+	runtime.Gosched() // TODO review
 	return true, nil
 }
 
@@ -306,9 +311,9 @@ func unitWalk(node string, dfs bool, ignorePermErrors bool, excludeBasename, exc
 
 	// actually traverse the file system
 	if dfs {
-		_, err = walkDFS(".", baseNodeInfo, &walkParams)
+		_, err = walkDFS("", baseNodeInfo, &walkParams)
 	} else {
-		_, err = walkBFS(".", baseNodeInfo, &walkParams)
+		_, err = walkBFS("", baseNodeInfo, &walkParams)
 	}
 	if err != nil {
 		errChan <- err
@@ -337,9 +342,9 @@ func unitHashFile(hashAlgorithm hashAlgo, basenameMode bool, basePath string,
 		fileData.Digest = hashNode(hash, basenameMode, basePath, fileData)
 
 		outputDir <- fileData
-		// TODO: runtime.Gosched() ?
+		runtime.Gosched() // TODO review
 		outputFinal <- fileData
-		// TODO: runtime.Gosched() ?
+		runtime.Gosched() // TODO review
 	}
 }
 
@@ -365,13 +370,16 @@ func unitHashDir(hashAlgorithm hashAlgo,
 	// but not more than 1 parent-level. This function is used
 	// internally to propagate hashes further up.
 	propagate := func(path string, digest []byte) {
+		//log.Printf("propagation: node '%s'…\n", path) // TODO
 		node := path
+		if node == "" {
+			return
+		}
 
+	PROP:
 		for {
-			if node == "" || node == "." || node == "/" {
-				break
-			}
-			node = filepath.Dir(node)
+			node = dir(node)
+			//log.Printf("propagation: iterate with '%s'\n", node) // TODO
 
 			// Case 1: digest makes node complete ⇒ propagate further up
 			// Case 2: node is still incomplete ⇒ stop propagation
@@ -390,15 +398,27 @@ func unitHashDir(hashAlgorithm hashAlgo,
 						// Case 1
 						digest = incompleteDir[i].Digest
 						outputFinal <- incompleteDir[i]
-						incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
+						if i+1 >= len(incompleteDir) {
+							incompleteDir = incompleteDir[:i]
+						} else {
+							incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
+						}
+						if node != "" {
+							//log.Printf("propagation: '%s' finished → continue propagation\n", node) // TODO
+						} else {
+							//log.Printf("propagation: '%s' finished → stop propagation at root node\n", node) // TODO
+							break PROP
+						}
 					} else {
+						//log.Printf("propagation: EntriesMissing of '%s' = %d …\n", incompleteDir[i].Path, incompleteDir[i].EntriesMissing) // TODO
 						stop = true
 					}
 				}
 			}
 
 			if stop {
-				break // Case 2
+				//log.Printf("propagation: … '%s' is still incomplete - abort propagation\n", node)  // TODO
+				break PROP // Case 2
 			}
 
 			// Case 3
@@ -407,12 +427,14 @@ func unitHashDir(hashAlgorithm hashAlgo,
 				copy(d, digest)
 				incompleteDir = append(incompleteDir, DirData{
 					Path: node,
-					// -1 is the initial value. It will be decremented until the actual number
-					// of required entries is added making EntriesMissing 0.
-					EntriesMissing: -1,
+					// -1 is the initial value. It will be decremented with each arriving entry.
+					// Eventually the actual number of required entries is added + 1.
+					// This makes EntriesMissing=0 once the digest is ready.
+					EntriesMissing: -1 - 1,
 					Digest:         d,
 				})
-				break
+				//log.Printf("propagation: entry created for '%s' - stopping propagation\n", node) // TODO
+				break PROP
 			}
 		}
 	}
@@ -422,27 +444,45 @@ LOOP:
 	// before that update incompleteDir until all entries are complete
 	// and emit complete ones to outputFinal
 	for {
+		//log.Println("current state", incompleteDir) // TODO
 		select {
 		case dirData, ok := <-inputWalk:
 			if ok {
+				//log.Printf("receiving initial data for directory '%s': entries expected = %v\n", dirData.Path, dirData.EntriesMissing) // TODO
 				for i := 0; i < len(incompleteDir); i++ {
 					if dirData.Path == incompleteDir[i].Path {
 						xorByteSlices(incompleteDir[i].Digest, dirData.Digest)
-						incompleteDir[i].EntriesMissing += dirData.EntriesMissing
+						// why "+ 1"? This is abused to distinguish value 0 from -1.
+						// value EntriesMissing=0 means "all entries have been found && digest is finished".
+						// value EntriesMissing=-1 means "this entry was just initialized".
+						incompleteDir[i].EntriesMissing += dirData.EntriesMissing + 1
 						incompleteDir[i].Size = dirData.Size
+						//log.Printf("EntriesMissing of '%s' = %d (via dir)\n", incompleteDir[i].Path, incompleteDir[i].EntriesMissing) // TODO
 
 						// emit directory hash, if all file hashes were provided
 						if incompleteDir[i].EntriesMissing == 0 {
 							outputFinal <- incompleteDir[i]
-							propagate(incompleteDir[i].Path, incompleteDir[i].Digest)
-							incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
+							digest := incompleteDir[i].Digest
+							if i+1 >= len(incompleteDir) {
+								incompleteDir = incompleteDir[:i]
+							} else {
+								incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
+							}
+							propagate(dirData.Path, digest)
 						}
 
 						continue LOOP
 					}
 				}
 
-				incompleteDir = append(incompleteDir, dirData)
+				if dirData.EntriesMissing == 0 {
+					//log.Printf("EntriesMissing of '%s' = %d (added and finished, via dir)\n", dirData.Path, dirData.EntriesMissing) // TODO
+					outputFinal <- dirData
+					propagate(dirData.Path, dirData.Digest)
+				} else {
+					//log.Printf("EntriesMissing of '%s' = %d (added, via dir)\n", dirData.Path, dirData.EntriesMissing) // TODO
+					incompleteDir = append(incompleteDir, dirData)
+				}
 			} else {
 				walkFinished = true
 				if walkFinished && fileFinished {
@@ -452,31 +492,41 @@ LOOP:
 
 		case fileData, ok := <-inputFile:
 			if ok {
-				directory := filepath.Dir(fileData.Path)
+				//log.Printf("receiving digest for file '%s'\n", fileData.Path) // TODO
+				directory := dir(fileData.Path)
 
 				for i := 0; i < len(incompleteDir); i++ {
 					if directory == incompleteDir[i].Path {
 						xorByteSlices(incompleteDir[i].Digest, fileData.Digest)
 						incompleteDir[i].EntriesMissing--
+						//log.Printf("EntriesMissing of '%s' = %d (via file)\n", incompleteDir[i].Path, incompleteDir[i].EntriesMissing) // TODO
 
 						// emit directory hash, if all file hashes were provided
 						if incompleteDir[i].EntriesMissing == 0 {
+							//log.Printf("publishing '%s'\n", incompleteDir[i].Path) // TODO
 							outputFinal <- incompleteDir[i]
-							propagate(incompleteDir[i].Path, incompleteDir[i].Digest)
-							incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
+							digest := incompleteDir[i].Digest
+							if i+1 >= len(incompleteDir) {
+								incompleteDir = incompleteDir[:i]
+							} else {
+								incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
+							}
+							propagate(directory, digest)
 						}
 
 						continue LOOP
 					}
 				}
 
+				//log.Printf("EntriesMissing of '%s' = -2 (added, via file)\n", directory) // TODO
 				d := make([]byte, len(fileData.Digest))
 				copy(d, fileData.Digest)
 				incompleteDir = append(incompleteDir, DirData{
 					Path: directory,
-					// -1 is the initial value. It will be decremented until the actual number
-					// of required entries is added making EntriesMissing 0.
-					EntriesMissing: -1,
+					// -1 is the initial value. It will be decremented with each arriving entry.
+					// Eventually the actual number of required entries is added + 1.
+					// This makes EntriesMissing=0 once the digest is ready.
+					EntriesMissing: -1 - 1,
 					Digest:         d,
 				})
 			} else {
@@ -486,8 +536,12 @@ LOOP:
 				}
 			}
 		}
-		// TODO: runtime.Gosched() ?
+		runtime.Gosched() // TODO review
 	}
+
+	// TODO verify that all entries have been emitted
+	//log.Println("terminating routine. Final state:") // TODO
+	//log.Println(incompleteDir) // TODO
 
 	if len(incompleteDir) > 0 {
 		errChan <- fmt.Errorf(`internal error: some directory was processed incompletely: %v`, incompleteDir)
@@ -537,7 +591,7 @@ LOOP:
 				}
 			}
 		}
-		// TODO: runtime.Gosched() ?
+		runtime.Gosched() // TODO review
 	}
 }
 
@@ -604,7 +658,7 @@ func HashATree(
 				shallTerminate = true
 				err = e
 			}
-			// TODO: runtime.Gosched() ?
+			runtime.Gosched() // TODO review
 		}
 	}()
 
