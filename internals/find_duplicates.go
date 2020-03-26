@@ -587,6 +587,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	var wg sync.WaitGroup
 	for t, tree := range trees {
 		for refNode := range traverseTree(tree, &data, digestSizeI) {
+			runtime.GC()
+
 			matches := make([]*hierarchyNode, 1, ExpectedMatchesPerNode)
 			matches[0] = refNode
 
@@ -628,7 +630,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			go func(refNode *hierarchyNode) {
 				defer wg.Done()
 				bubbleAndPublish(matches, &data, outChan, digestSizeI, reportFiles[t])
-				data[]
+				// TODO mark digest of refNode as disabled such that these nodes are not traversed twice
 			}(refNode)
 		}
 		log.Printf("finished traversal of every node in %s", reportFiles[t])
@@ -648,7 +650,7 @@ func traverseTree(rootNode *hierarchyNode, data *[256][]byte, digestSizeI int) <
 	recur = func(node *hierarchyNode) {
 		for _, child := range node.children {
 			// do not traverse it, if this digest was already analyzed
-			disabled := int(data[child.digestFirstByte][int(child.digestIndex>>1)*(digestSizeI-1+1)+digestSizeI]) & 128
+			disabled := int(data[child.digestFirstByte][int(child.digestIndex>>1)*(digestSizeI-1+1)+digestSizeI-1]) & 128
 			if disabled > 0 {
 				continue
 			}
@@ -674,7 +676,7 @@ func matchTree(trees []*hierarchyNode, refNode *hierarchyNode, data *[256][]byte
 	var wg sync.WaitGroup
 	outChan := make(chan *hierarchyNode)
 
-	go func(trees []*hierarchyNode, refNode *hierarchyNode, data *[256][]byte, digestSize int, stop *bool, outchan chan<- *hierarchyNode) {
+	go func(trees []*hierarchyNode, refNode *hierarchyNode, data *[256][]byte, digestSize int, stop *bool, outChan chan<- *hierarchyNode) {
 		defer close(outChan)
 
 		var recur func(*hierarchyNode)
