@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
+	"strings"
 	"sync"
 )
 
@@ -272,15 +274,15 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			refBasenameMode = baseName
 		} else {
 			if refVersion != version {
-				errChan <- fmt.Errorf(`Found inconsistent version among report files: %d.x as well as %d.x`, refVersion, rep.Head.Version[0])
+				errChan <- fmt.Errorf(`Inconsistent configuration: %s uses version %d.x, but %s uses version %d.x`, reportFiles[0], refVersion, reportFile, rep.Head.Version[0])
 				return
 			}
 			if refHashAlgorithm != hashAlgorithm {
-				errChan <- fmt.Errorf(`Found inconsistent hash algorithm among report files: %s as well as %s`, refHashAlgorithm, rep.Head.HashAlgorithm)
+				errChan <- fmt.Errorf(`Inconsistent configuration: %s uses '%s', but %s uses '%s'`, reportFiles[0], refHashAlgorithm, reportFile, rep.Head.HashAlgorithm)
 				return
 			}
 			if refBasenameMode != baseName {
-				errChan <- fmt.Errorf(`Found inconsistent mode among report files: basename mode as well as empty mode`)
+				errChan <- fmt.Errorf(`Inconsistent configuration: %s uses basename-mode=%t, but %s uses basename-mode=%t`, reportFiles[0], refBasenameMode, reportFile, baseName)
 				return
 			}
 		}
@@ -467,15 +469,13 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	data.Dump()
 	var dumpTree func(*hierarchyNode, *DigestData, int)
 	dumpTree = func(node *hierarchyNode, data *DigestData, indent int) {
-		for i := 0; i < indent; i++ {
-			fmt.Print("  ")
-		}
+		identation := strings.Repeat("  ", indent)
 		basename := node.basename
 		if node.basename == "" && indent == 0 {
 			basename = "."
 		}
-		fmt.Printf("%s (parent %p) %s and %d child(ren) and %d duplicates\n",
-			basename, node.parent,
+		log.Printf("%s%s (parent %p) %s and %d child(ren) and %d duplicates\n",
+			identation, basename, node.parent,
 			hex.EncodeToString(data.Digest(node.digestFirstByte, int(node.digestIndex>>1))),
 			len(node.children),
 			data.Duplicates(node.digestFirstByte, int(node.digestIndex>>1)),
@@ -485,7 +485,9 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		}
 	}
 	for i := range trees {
+		log.Println("<tree>")
 		dumpTree(trees[i], data, 0)
+		log.Println("</tree>")
 	}
 	log.Printf("Step 3 of 4 finished: filesystem tree of duplicates was built\n")
 
@@ -525,7 +527,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			// TODO remove debug
 			//fmt.Printf("found %d matches, expected %d, for %s with %s%s\n", len(matches), expectedDuplicates+1, refNode.basename, hex.EncodeToString([]byte{refNode.digestFirstByte}), hex.EncodeToString(data[refNode.digestFirstByte][int(refNode.digestIndex>>1)*digestSizeI:int(refNode.digestIndex>>1)*digestSizeI+digestSizeI-1]))
 
-			if len(matches) == 1 {
+			if len(matches) <= 1 {
 				times := fmt.Sprintf("%d", expectedDuplicates+1)
 				if expectedDuplicates == MaxCountInDataStructure {
 					times = "many"
@@ -544,6 +546,10 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 				bubbleAndPublish(matches, data, outChan, digestSizeI, reportFiles[t])
 				// TODO mark digest of refNode as disabled such that these nodes are not traversed twice
 			}(refNode)
+
+			// TODO which one?
+			runtime.GC()
+			debug.FreeOSMemory() // 690 MB → 600 MB … made some difference
 		}
 		log.Printf("finished traversal of every node in %s", reportFiles[t])
 	}
@@ -551,6 +557,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	log.Printf("finished traversal, but didn't finish matching yet")
 	wg.Wait()
 	log.Printf("Step 4 of 4 finished: traversed tree in DFS and found highest duplicate nodes\n")
+
+	// TODO print meaningful statistics
 }
 
 // traverseTree traverses the given tree defined by the root node
@@ -578,7 +586,11 @@ func traverseTree(rootNode *hierarchyNode, data *DigestData, digestSizeI int) <-
 	go func() {
 		defer close(outChan)
 		recur(rootNode)
-		outChan <- rootNode
+
+		disabledRoot := data.Disabled(rootNode.digestFirstByte, int(rootNode.digestIndex>>1))
+		if !disabledRoot {
+			outChan <- rootNode
+		}
 	}()
 	return outChan
 }
@@ -590,6 +602,21 @@ func matchTree(trees []*hierarchyNode, refNode *hierarchyNode, data *DigestData,
 	var wg sync.WaitGroup
 	outChan := make(chan *hierarchyNode)
 
+	nodesEqual := func(a, b *hierarchyNode) bool {
+		if a.digestFirstByte == b.digestFirstByte {
+			rDigestSuffix := data.DigestSuffix(b.digestFirstByte, int(b.digestIndex>>1))
+			cDigestSuffix := data.DigestSuffix(a.digestFirstByte, int(a.digestIndex>>1))
+
+			if len(rDigestSuffix) != len(cDigestSuffix) {
+				panic(fmt.Sprintf("internal error: len(rDigestSuffix) != len(cDigestSuffix); %d != %d", len(rDigestSuffix), len(cDigestSuffix)))
+			}
+			if eqByteSlices(rDigestSuffix, cDigestSuffix) {
+				return true
+			}
+		}
+		return false
+	}
+
 	go func(trees []*hierarchyNode, refNode *hierarchyNode, data *DigestData, digestSize int, stop *bool, outChan chan<- *hierarchyNode) {
 		defer close(outChan)
 
@@ -599,16 +626,8 @@ func matchTree(trees []*hierarchyNode, refNode *hierarchyNode, data *DigestData,
 				child := &node.children[i]
 
 				// compare digests
-				if child.digestFirstByte == refNode.digestFirstByte {
-					rDigestSuffix := data.DigestSuffix(refNode.digestFirstByte, int(refNode.digestIndex>>1))
-					cDigestSuffix := data.DigestSuffix(child.digestFirstByte, int(child.digestIndex>>1))
-
-					if len(rDigestSuffix) != len(cDigestSuffix) {
-						panic(fmt.Sprintf("internal error: len(rDigestSuffix) != len(cDigestSuffix); %d != %d", len(rDigestSuffix), len(cDigestSuffix)))
-					}
-					if eqByteSlices(rDigestSuffix, cDigestSuffix) {
-						outChan <- child
-					}
+				if nodesEqual(child, refNode) {
+					outChan <- child
 				}
 
 				// stop if maximum number of matches was reached
@@ -623,6 +642,10 @@ func matchTree(trees []*hierarchyNode, refNode *hierarchyNode, data *DigestData,
 		}
 
 		for i := range trees {
+			if nodesEqual(refNode, trees[i]) {
+				outChan <- trees[i]
+			}
+
 			wg.Add(1)
 			go func(tree *hierarchyNode) {
 				recur(tree)

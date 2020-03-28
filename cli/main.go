@@ -18,7 +18,7 @@ var app *kingpin.Application
 var report *cliReportCommand
 var find *cliFindCommand
 var stats *cliStatsCommand
-var hash *cliHashCommand
+var digest *cliDigestCommand
 var hashAlgos *cliHashAlgosCommand
 var version *cliVersionCommand
 
@@ -124,7 +124,7 @@ func init() {
 	report = newCLIReportCommand(app)
 	find = newCLIFindCommand(app)
 	stats = newCLIStatsCommand(app)
-	hash = newCLIHashCommand(app)
+	digest = newCLIDigestCommand(app)
 	hashAlgos = newCLIHashAlgosCommand(app)
 	version = newCLIVersionCommand(app)
 }
@@ -263,13 +263,13 @@ func main() {
 
 			} else {
 				for entry := range dupEntries {
-					//log.Println("<finalized entry>")
+					//log.Println("<duplicates>")
 					out := hex.EncodeToString(entry.Digest) + "\n"
 					for _, s := range entry.Set {
-						out += `  ` + s.ReportFile + `: ` + s.Path + "\n"
+						out += `  ` + s.ReportFile + " " + string(filepath.Separator) + " " + s.Path + "\n"
 					}
 					fmt.Println(out)
-					//log.Println("</finalized entry>")
+					//log.Println("</duplicates>")
 				}
 			}
 		}()
@@ -290,8 +290,8 @@ func main() {
 		}
 		fmt.Println(string(b))
 
-	case hash.cmd.FullCommand():
-		hashSettings, err := hash.Validate()
+	case digest.cmd.FullCommand():
+		hashSettings, err := digest.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}

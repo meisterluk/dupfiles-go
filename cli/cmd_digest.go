@@ -6,8 +6,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// HashCommand defines the CLI command parameters
-type HashCommand struct {
+// DigestCommand defines the CLI command parameters
+type DigestCommand struct {
 	BaseNode             string   `json:"basenode"`
 	BFS                  bool     `json:"bfs"`
 	DFS                  bool     `json:"dfs"`
@@ -24,8 +24,8 @@ type HashCommand struct {
 	Help                 bool     `json:"help"`
 }
 
-// cliHashCommand defines the CLI arguments as kingpin requires them
-type cliHashCommand struct {
+// cliDigestCommand defines the CLI arguments as kingpin requires them
+type cliDigestCommand struct {
 	cmd                  *kingpin.CmdClause
 	BaseNode             *string
 	BFS                  *bool
@@ -43,9 +43,9 @@ type cliHashCommand struct {
 	Help                 *bool
 }
 
-func newCLIHashCommand(app *kingpin.Application) *cliHashCommand {
-	c := new(cliHashCommand)
-	c.cmd = app.Command("hash", "Give the hash value of an individual node.")
+func newCLIDigestCommand(app *kingpin.Application) *cliDigestCommand {
+	c := new(cliDigestCommand)
+	c.cmd = app.Command("digest", "Give the digest of an individual node.")
 
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
 	c.DFS = c.cmd.Flag("dfs", "apply depth-first search for file system").Bool()
@@ -64,7 +64,7 @@ func newCLIHashCommand(app *kingpin.Application) *cliHashCommand {
 	return c
 }
 
-func (c *cliHashCommand) Validate() (*HashCommand, error) {
+func (c *cliDigestCommand) Validate() (*DigestCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {
 		return nil, fmt.Errorf("basenode must not be empty")
@@ -76,8 +76,8 @@ func (c *cliHashCommand) Validate() (*HashCommand, error) {
 		return nil, fmt.Errorf("cannot accept --basename-mode and --empty-mode simultaneously")
 	}
 
-	// migrate CLIHashCommand to HashCommand
-	cmd := new(HashCommand)
+	// migrate CLIDigestCommand to DigestCommand
+	cmd := new(DigestCommand)
 	cmd.ExcludeBasename = make([]string, 0)
 	cmd.ExcludeBasenameRegex = make([]string, 0)
 	cmd.ExcludeTree = make([]string, 0)
