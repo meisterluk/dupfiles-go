@@ -56,7 +56,7 @@ func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 		data.TotalByteSize += uint64(stat.Size())
 		data.TotalEntries++
 
-		switch determineNodeType(stat) {
+		switch DetermineNodeType(stat) {
 		case 'C':
 			data.CountDeviceFile++
 		case 'F':

@@ -435,6 +435,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 	// at this point, "trees" must only be accessed read-only
 
+	// verify that all nodes have been initialized (i.e. have digest in file)
 	var verifyTree func(*hierarchyNode, *DigestData, string)
 	verifyTree = func(node *hierarchyNode, data *DigestData, reportFile string) {
 		if node.digestIndex&1 == 0 {
@@ -469,8 +470,12 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		for i := 0; i < indent; i++ {
 			fmt.Print("  ")
 		}
+		basename := node.basename
+		if node.basename == "" && indent == 0 {
+			basename = "."
+		}
 		fmt.Printf("%s (parent %p) %s and %d child(ren) and %d duplicates\n",
-			node.basename, node.parent,
+			basename, node.parent,
 			hex.EncodeToString(data.Digest(node.digestFirstByte, int(node.digestIndex>>1))),
 			len(node.children),
 			data.Duplicates(node.digestFirstByte, int(node.digestIndex>>1)),
@@ -491,14 +496,20 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	var wg sync.WaitGroup
 	for t, tree := range trees {
 		for refNode := range traverseTree(tree, data, digestSizeI) {
-			runtime.GC()
-
-			matches := make([]*hierarchyNode, 1, ExpectedMatchesPerNode)
-			matches[0] = refNode
-
 			// find all nodes with matching digest
 			stopSearch := false
 			expectedDuplicates := data.Duplicates(refNode.digestFirstByte, int(refNode.digestIndex>>1))
+
+			if expectedDuplicates == 0 {
+				continue
+			}
+
+			// declare this digest as disabled
+			data.Disable(refNode.digestFirstByte, int(refNode.digestIndex>>1))
+
+			// collect matches
+			matches := make([]*hierarchyNode, 1, ExpectedMatchesPerNode)
+			matches[0] = refNode
 
 			for match := range matchTree(trees, refNode, data, digestSizeI, &stopSearch) {
 				if refNode == match {
@@ -549,7 +560,9 @@ func traverseTree(rootNode *hierarchyNode, data *DigestData, digestSizeI int) <-
 
 	var recur func(*hierarchyNode)
 	recur = func(node *hierarchyNode) {
-		for _, child := range node.children {
+		for i := range node.children {
+			child := &node.children[i]
+
 			// do not traverse it, if this digest was already analyzed
 			disabled := data.Disabled(child.digestFirstByte, int(child.digestIndex>>1))
 			if disabled {
@@ -557,8 +570,8 @@ func traverseTree(rootNode *hierarchyNode, data *DigestData, digestSizeI int) <-
 			}
 
 			// traverse into child
-			outChan <- &child
-			recur(&child)
+			outChan <- child
+			recur(child)
 		}
 	}
 
@@ -686,6 +699,9 @@ func publishDuplicates(matches []*hierarchyNode, data *DigestData, outChan chan<
 			}
 			node = node.parent
 			approximatePath = node.basename + string(filepath.Separator) + approximatePath
+		}
+		if len(approximatePath) > 0 {
+			approximatePath = approximatePath[1:]
 		}
 		outputs = append(outputs, DupOutput{ReportFile: reportFile, Path: approximatePath})
 	}

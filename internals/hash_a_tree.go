@@ -51,18 +51,20 @@ type walkParameters struct {
 	basePath             string
 	dfs                  bool
 	ignorePermErrors     bool
+	hashAlgorithm        string
 	excludeBasename      []string
 	excludeBasenameRegex []*regexp.Regexp
 	excludeTree          []string
+	basenameMode         bool
 	fileOut              chan<- FileData
 	dirOut               chan<- DirData
 	digestSize           int
 	shallStop            *bool
 }
 
-// hashNode generates the hash digest of a given file (at join(basePath, data.Path)).
+// HashNode generates the hash digest of a given file (at join(basePath, data.Path)).
 // For directories, only the filename is hashed on basename mode.
-func hashNode(hash Hash, basenameMode bool, basePath string, data FileData) []byte {
+func HashNode(hash Hash, basenameMode bool, basePath string, data FileData) []byte {
 	hash.Reset()
 
 	if basenameMode {
@@ -173,11 +175,24 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			}
 		}
 
-		// TODO initialize digest with hashed basename in basename mode
+		// in basename mode, XOR digest of directory with digest of basename
+		digest := make([]byte, params.digestSize)
+		if params.basenameMode {
+			h, err := HashAlgorithmFromString(params.hashAlgorithm)
+			if err != nil {
+				return false, err
+			}
+			hash := h.Algorithm()
+			err = hash.ReadBytes([]byte(filepath.Base(nodePath)))
+			if err != nil {
+				return false, err
+			}
+			xorByteSlices(digest, hash.Digest())
+		}
 
-		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: make([]byte, params.digestSize)}
+		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: digest}
 	} else {
-		params.fileOut <- FileData{Path: nodePath, Type: determineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
+		params.fileOut <- FileData{Path: nodePath, Type: DetermineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
 	}
 
 	runtime.Gosched() // TODO review
@@ -259,11 +274,24 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			}
 		}
 
-		// TODO initialize digest with hashed basename in basename mode
+		// in basename mode, XOR digest of directory with digest of basename
+		digest := make([]byte, params.digestSize)
+		if params.basenameMode {
+			h, err := HashAlgorithmFromString(params.hashAlgorithm)
+			if err != nil {
+				return false, err
+			}
+			hash := h.Algorithm()
+			err = hash.ReadBytes([]byte(filepath.Base(nodePath)))
+			if err != nil {
+				return false, err
+			}
+			xorByteSlices(digest, hash.Digest())
+		}
 
-		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: make([]byte, params.digestSize)}
+		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: digest}
 	} else {
-		params.fileOut <- FileData{Path: nodePath, Type: determineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
+		params.fileOut <- FileData{Path: nodePath, Type: DetermineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
 	}
 
 	runtime.Gosched() // TODO review
@@ -275,7 +303,7 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 // If any error occurs, [only] the first error will be written to errChan. Otherwise nil is written to the error channel.
 // Thus errChan also serves as signal to indicate when {fileOut, dirOut} channel won't receive any more data.
 // NOTE this function defers recover. Run it as goroutine.
-func unitWalk(node string, dfs bool, ignorePermErrors bool, excludeBasename, excludeBasenameRegex, excludeTree []string, digestSize int,
+func unitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, basenameMode bool, digestSize int,
 	fileOut chan<- FileData, dirOut chan<- DirData,
 	errChan chan error, shallStop *bool, wg *sync.WaitGroup,
 ) {
@@ -299,8 +327,9 @@ func unitWalk(node string, dfs bool, ignorePermErrors bool, excludeBasename, exc
 	}
 	walkParams := walkParameters{
 		basePath: node, dfs: dfs, ignorePermErrors: ignorePermErrors, excludeBasename: excludeBasename,
-		excludeBasenameRegex: regexes, excludeTree: excludeTree, fileOut: fileOut, dirOut: dirOut,
-		digestSize: digestSize, shallStop: shallStop,
+		hashAlgorithm: hashAlgorithm, excludeBasenameRegex: regexes, excludeTree: excludeTree,
+		basenameMode: basenameMode, fileOut: fileOut, dirOut: dirOut, digestSize: digestSize,
+		shallStop: shallStop,
 	}
 
 	baseNodeInfo, err := os.Stat(node)
@@ -339,7 +368,7 @@ func unitHashFile(hashAlgorithm hashAlgo, basenameMode bool, basePath string,
 
 	// for every input, hash the file and emit it to both channels
 	for fileData := range inputFile {
-		fileData.Digest = hashNode(hash, basenameMode, basePath, fileData)
+		fileData.Digest = HashNode(hash, basenameMode, basePath, fileData)
 
 		outputDir <- fileData
 		runtime.Gosched() // TODO review
@@ -625,7 +654,7 @@ func HashATree(
 
 	var wg sync.WaitGroup
 
-	go unitWalk(baseNode, dfs, ignorePermErrors, excludeBasename, excludeBasenameRegex, excludeTree, h.DigestSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
+	go unitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.DigestSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
 	for i := 0; i < 4; i++ {
 		go unitHashFile(h, basenameMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
 			workerTerminated <- true

@@ -346,8 +346,13 @@ func main() {
 				handleError(err.Error(), 1, hashSettings.JSONOutput)
 			}
 			hash := algo.Algorithm()
-			hash.ReadFile(hashSettings.BaseNode)
-			fmt.Println(hash.HexDigest())
+			digest := internals.HashNode(hash, hashSettings.BasenameMode, filepath.Dir(hashSettings.BaseNode), internals.FileData{
+				Path:   filepath.Base(hashSettings.BaseNode),
+				Type:   internals.DetermineNodeType(fileinfo),
+				Size:   uint64(fileinfo.Size()),
+				Digest: []byte{},
+			})
+			fmt.Println(hex.EncodeToString(digest))
 		}
 
 	case hashAlgos.cmd.FullCommand():

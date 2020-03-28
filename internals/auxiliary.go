@@ -195,8 +195,8 @@ func pathSplit(path string) []string {
 	return components
 }
 
-// determineNodeType obviously determines the node type for a give file represented by its os.FileInfo
-func determineNodeType(stat os.FileInfo) byte {
+// DetermineNodeType obviously determines the node type for a give file represented by its os.FileInfo
+func DetermineNodeType(stat os.FileInfo) byte {
 	mode := stat.Mode()
 	switch {
 	case mode&os.ModeDevice != 0:
