@@ -374,6 +374,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 	// Step 3: identify digests occuring at least twice
 	// NOTE remove all entries with "dups = 0" and shift successive entries to lowest possible index
+	// NOTE In "data := make([]byte, 2 * GB); data = data[0:1 * GB]" golang cannot release 1GB,
+	//   thus there is no memory release going on here
 	log.Printf("Step 3 of 5 started: remove non-duplicate digests from memory\n")
 	data.RemoveSingleDigests()
 	for i := 0; i < 256; i++ {
@@ -401,8 +403,9 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// Step 4: Build a hierarchical [filesystem] tree per reportFile limited to duplicates.
 	//         Nodes are references to data.
 	log.Printf("Step 4 of 5 started: build filesystem tree of duplicates\n")
-
 	trees := make([]*hierarchyNode, 0, len(reportFiles))
+
+	// first iteration: add only non-directories
 	for _, reportFile := range reportFiles {
 		log.Printf("reading '%s' …\n", reportFile)
 		rootNode := new(hierarchyNode)
@@ -425,10 +428,15 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 				return
 			}
 
+			// add only non-directories
+			if tail.NodeType == 'D' {
+				continue
+			}
+
 			// ask data: does this node have a duplicate?
 			index, ok := data.IndexOf(tail.HashValue)
 			if !ok {
-				continue // ignore this tail line
+				continue // no? then ignore this tail line
 			}
 
 			// is duplicate ⇒ add to tree
@@ -461,6 +469,45 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		rep.Close()
 		trees = append(trees, rootNode)
 	}
+
+	// now, we know which nodes are required ("only duplicates").
+	// but we want to reason about them using directory hashes.
+	// thus, we also populate directory hashes now.
+	for i, reportFile := range reportFiles {
+		rootNode := trees[i]
+
+		rep, err := NewReportReader(reportFile)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		for {
+			tail, err := rep.Iterate()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				rep.Close()
+				errChan <- err
+				return
+			}
+
+			// add only directories
+			if tail.NodeType != 'D' {
+				continue
+			}
+
+			// ask data: does this node have a duplicate?
+			_, ok := data.IndexOf(tail.HashValue)
+			if !ok {
+				continue // ignore this tail line
+			}
+
+			// TODO: broken we don't have hashes of all directories here …
+		}
+		rep.Close()
+	}
+
 	// at this point, "trees" must only be accessed read-only
 	// NOTE not all nodes received a proper index and first byte. Why?
 	//   the tree is built only with duplicates, so not every node was filled with data.
