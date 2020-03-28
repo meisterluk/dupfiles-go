@@ -2,9 +2,7 @@ package internals
 
 import (
 	"encoding/hex"
-	"fmt"
 	"log"
-	"runtime"
 )
 
 // DigestData essentially represents a list of all digests occuring at least twice.
@@ -58,50 +56,6 @@ func (d *DigestData) Add(digest []byte) (int, bool) {
 	d.data[firstByte] = append(d.data[firstByte], 0)
 	d.totalUniqueDigests++
 	return len(d.data[firstByte])/d.digestSize - 1, false
-}
-
-// RemoveSingleDigests removes all entries in data[n] with "dups = 0"
-func (d *DigestData) RemoveSingleDigests() {
-	finishedNumUniqueDigests := uint64(0)
-	oldNumUniqueDigests := d.totalUniqueDigests
-	d.totalUniqueDigests = uint64(0)
-
-	for i := 0; i < 256; i++ {
-		actualEnd := 0
-
-		// determine "dups == 0" entries and omit them, move others to free indices
-		for j := 0; j*d.digestSize < len(d.data[i]); j++ {
-			dups := d.data[i][j*d.digestSize+d.digestSize-1] & MaxCountInDataStructure
-			if dups != 0 {
-				// move current entry to first free entry of less-equal index
-				if j != actualEnd {
-					copy(
-						d.data[i][d.digestSize*actualEnd:d.digestSize*(actualEnd+1)],
-						d.data[i][d.digestSize*j:d.digestSize*(j+1)],
-					)
-				}
-				actualEnd++
-			}
-			finishedNumUniqueDigests++
-		}
-		d.totalUniqueDigests += uint64(actualEnd)
-
-		// reduce byte array to actual used size
-		d.data[i] = d.data[i][0 : d.digestSize*actualEnd]
-
-		// logging
-		if i%32 == 0 {
-			ratio := 100.0 * float64(finishedNumUniqueDigests) / float64(oldNumUniqueDigests)
-			log.Printf("finished %.2f%%\n", ratio)
-		}
-	}
-
-	// test invariant
-	if finishedNumUniqueDigests != oldNumUniqueDigests {
-		panic(fmt.Sprintf("internal memory: #(finished unique digests) != #(total unique digests); %d != %d", finishedNumUniqueDigests, oldNumUniqueDigests))
-	}
-
-	runtime.GC() // hopefully free some memory // TODO does it?
 }
 
 // Digest returns the byte array for the digest identified by (firstByte, idx)

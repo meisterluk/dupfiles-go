@@ -296,7 +296,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	if !refBasenameMode {
 		basenameString = "empty"
 	}
-	log.Printf("Step 1 of 5 finished: metadata is consistent: version %d, hash algo %s, and %s mode\n", refVersion, refHashAlgorithm, basenameString)
+	log.Printf("Step 1 of 4 finished: metadata is consistent: version %d, hash algo %s, and %s mode\n", refVersion, refHashAlgorithm, basenameString)
 
 	// Step 2: read all digests into a byte array called data.
 	//   The byte array is a sequence of items with values (digest suffix ‖ disabled bit ‖ dups count).
@@ -309,7 +309,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		estimatedNumEntries = 2
 	}
 	memoryRequired := estimatedNumEntries * (digestSize + 1)
-	log.Printf("Step 2 of 5 started: reading all digests into memory\n")
+	log.Printf("Step 2 of 4 started: reading all digests into memory\n")
 	// TODO it is not difficult to get the actual number of entries, right? ⇒ accurate data/estimate
 	log.Printf("total file size %d bytes ⇒ estimated %s of main memory required\n", digestSize, humanReadableBytes(memoryRequired))
 
@@ -370,42 +370,13 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		}
 	}
 	// at this point, "data" must only be accessed read-only
-	log.Printf("Step 2 of 5 finished: reading all digests into memory\n")
+	log.Printf("Step 2 of 4 finished: reading all digests into memory\n")
 
-	// Step 3: identify digests occuring at least twice
-	// NOTE remove all entries with "dups = 0" and shift successive entries to lowest possible index
-	// NOTE In "data := make([]byte, 2 * GB); data = data[0:1 * GB]" golang cannot release 1GB,
-	//   thus there is no memory release going on here
-	log.Printf("Step 3 of 5 started: remove non-duplicate digests from memory\n")
-	data.RemoveSingleDigests()
-	for i := 0; i < 256; i++ {
-		// test some invariants
-		if len(data.data[i])%(digestSizeI-1+1) != 0 {
-			panic("internal error: digest storage after reduction is broken")
-		}
-		for j := 0; digestSizeI*j < len(data.data[i]); j++ {
-			if data.data[i][j*(digestSizeI-1+1)+digestSizeI-1]&MaxCountInDataStructure == 0 {
-				panic(fmt.Sprintf(
-					"internal error: after removing non-duplicates, non-duplicates must not exist (digest %s)",
-					hex.EncodeToString(data.Digest(byte(i), j)),
-				))
-			}
-			// TODO remove debugging info
-			/*log.Printf("%s%s ⇒ %d occurences\n",
-				hex.EncodeToString([]byte{data[i][j*digestSizeI]}),
-				hex.EncodeToString(data[i][j*digestSizeI:j*digestSizeI+digestSizeI-1]),
-				data[i][j*digestSizeI+digestSizeI-1]&MaxCountInDataStructure,
-			)*/
-		}
-	}
-	log.Printf("Step 3 of 5 finished: removed %d non-duplicate digests from memory\n", totalNumEntries-data.totalUniqueDigests)
-
-	// Step 4: Build a hierarchical [filesystem] tree per reportFile limited to duplicates.
+	// Step 3: Build a hierarchical [filesystem] tree per reportFile limited to duplicates.
 	//         Nodes are references to data.
-	log.Printf("Step 4 of 5 started: build filesystem tree of duplicates\n")
+	log.Printf("Step 3 of 4 started: build filesystem tree of duplicates\n")
 	trees := make([]*hierarchyNode, 0, len(reportFiles))
 
-	// first iteration: add only non-directories
 	for _, reportFile := range reportFiles {
 		log.Printf("reading '%s' …\n", reportFile)
 		rootNode := new(hierarchyNode)
@@ -428,16 +399,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 				return
 			}
 
-			// add only non-directories
-			if tail.NodeType == 'D' {
-				continue
-			}
-
 			// ask data: does this node have a duplicate?
-			index, ok := data.IndexOf(tail.HashValue)
-			if !ok {
-				continue // no? then ignore this tail line
-			}
+			index, _ := data.IndexOf(tail.HashValue)
 
 			// is duplicate ⇒ add to tree
 			components := pathSplit(tail.Path)
@@ -470,47 +433,35 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		trees = append(trees, rootNode)
 	}
 
-	// now, we know which nodes are required ("only duplicates").
-	// but we want to reason about them using directory hashes.
-	// thus, we also populate directory hashes now.
-	for i, reportFile := range reportFiles {
-		rootNode := trees[i]
+	// at this point, "trees" must only be accessed read-only
 
-		rep, err := NewReportReader(reportFile)
-		if err != nil {
-			errChan <- err
-			return
+	var verifyTree func(*hierarchyNode, *DigestData, string)
+	verifyTree = func(node *hierarchyNode, data *DigestData, reportFile string) {
+		if node.digestIndex&1 == 0 {
+			// determine full path
+			fullPath := ""
+			currentNode := node
+			for {
+				fullPath = fullPath + string(filepath.Separator) + node.basename
+				if currentNode == currentNode.parent {
+					break
+				}
+				currentNode = currentNode.parent
+			}
+			if len(fullPath) > 0 {
+				fullPath = fullPath[1:]
+			}
+			panic(fmt.Sprintf("node '%s' is missing in reportFile '%s'", fullPath, reportFile))
 		}
-		for {
-			tail, err := rep.Iterate()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				rep.Close()
-				errChan <- err
-				return
-			}
-
-			// add only directories
-			if tail.NodeType != 'D' {
-				continue
-			}
-
-			// ask data: does this node have a duplicate?
-			_, ok := data.IndexOf(tail.HashValue)
-			if !ok {
-				continue // ignore this tail line
-			}
-
-			// TODO: broken we don't have hashes of all directories here …
+		// traverse into children
+		for c := 0; c < len(node.children); c++ {
+			verifyTree(&node.children[c], data, reportFile)
 		}
-		rep.Close()
+	}
+	for i := range trees {
+		verifyTree(trees[i], data, reportFiles[i])
 	}
 
-	// at this point, "trees" must only be accessed read-only
-	// NOTE not all nodes received a proper index and first byte. Why?
-	//   the tree is built only with duplicates, so not every node was filled with data.
 	// TODO just debug information
 	data.Dump()
 	var dumpTree func(*hierarchyNode, *DigestData, int)
@@ -531,10 +482,10 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	for i := range trees {
 		dumpTree(trees[i], data, 0)
 	}
-	log.Printf("Step 4 of 5 finished: filesystem tree of duplicates was built\n")
+	log.Printf("Step 3 of 4 finished: filesystem tree of duplicates was built\n")
 
-	// Step 5: traverse tree in DFS and find highest duplicate nodes in tree to publish them
-	log.Printf("Step 5 of 5 started: traverse tree in DFS and find highest duplicate nodes\n")
+	// Step 4: traverse tree in DFS and find highest duplicate nodes in tree to publish them
+	log.Printf("Step 4 of 4 started: traverse tree in DFS and find highest duplicate nodes\n")
 
 	// we visit *every node* in DFS
 	var wg sync.WaitGroup
@@ -588,7 +539,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 	log.Printf("finished traversal, but didn't finish matching yet")
 	wg.Wait()
-	log.Printf("Step 5 of 5 finished: traversed tree in DFS and found highest duplicate nodes\n")
+	log.Printf("Step 4 of 4 finished: traversed tree in DFS and found highest duplicate nodes\n")
 }
 
 // traverseTree traverses the given tree defined by the root node
