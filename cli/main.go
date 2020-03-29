@@ -361,7 +361,25 @@ func main() {
 			kingpin.FatalUsage(err.Error())
 		}
 
-		b, err := json.Marshal(hashAlgosSettings)
+		type dataSet struct {
+			CheckSucceeded bool     `json:"check-result"`
+			SupHashAlgos   []string `json:"supported-hash-algorithms"`
+		}
+
+		data := dataSet{
+			CheckSucceeded: false,
+			SupHashAlgos:   internals.SupportedHashAlgorithms(),
+		}
+
+		if hashAlgosSettings.CheckSupport != "" {
+			for _, h := range internals.SupportedHashAlgorithms() {
+				if h == hashAlgosSettings.CheckSupport {
+					data.CheckSucceeded = true
+				}
+			}
+		}
+
+		b, err := json.Marshal(data)
 		if err != nil {
 			fmt.Println("error:", err)
 		}

@@ -65,12 +65,16 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 
 		if buffer[0] == '#' && r.Head.HashAlgorithm == "" {
 			// parse head line
-			regex, err := regexp.CompilePOSIX(`# +([0-9.]+(\.[0-9.]+){0,2}) +([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}) +([-_a-zA-Z0-9]+) (B|E) +([-_a-zA-Z0-9]+) +([^\r\n]+)`)
+			regex, err := regexp.CompilePOSIX(`# +([0-9.]+(\.[0-9.]+){0,2}) +([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}) +([-_a-zA-Z0-9]+) (B|E) +([-._a-zA-Z0-9]+) +([^\r\n]+)`)
 			if err != nil {
 				return tail, err
 			}
 
 			groups := regex.FindSubmatch(buffer[0:bufferIndex])
+			if len(groups) == 0 {
+				return tail, fmt.Errorf(`Could not parse head line`)
+			}
+
 			versionNumber, err := parseVersionNumber(string(groups[1]))
 			if err != nil {
 				return tail, err
