@@ -15,20 +15,20 @@ type jsonError struct {
 }
 
 // handleError prints the error in the appropriate (JSON or plain text) format
-func handleError(msg string, exitCode int, jsonOutput bool) {
+func handleError(msg string, exitCode int, jsonOutput bool) int {
 	if jsonOutput {
 		jErr := jsonError{msg, exitCode}
 		jsonRepr, err := json.Marshal(jErr)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, `{"error":"could not encode error message as JSON","exitcode":2}`)
-			os.Exit(2)
+			return 2
 		} else {
 			fmt.Fprintln(os.Stderr, string(jsonRepr))
-			os.Exit(exitCode)
+			return exitCode
 		}
 	}
 	fmt.Fprintln(os.Stderr, `Error: `+msg)
-	os.Exit(exitCode)
+	return exitCode
 }
 
 // envOr returns either environment variable envKey (if non-empty) or the default Value

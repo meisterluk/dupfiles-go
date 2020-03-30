@@ -129,12 +129,22 @@ func init() {
 	version = newCLIVersionCommand(app)
 }
 
-func main() {
+func cli() int {
+	// <profiling>
+	/*f, err := os.Create("cpu.prof")
+	if err != nil {
+		log.Println(err)
+		return 200
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()*/
+	// </profiling>
+
 	subcommand, err := app.Parse(os.Args[1:])
 
 	if err != nil {
 		resp := &errorResponse{err.Error(), 1}
-		os.Exit(resp.Print())
+		return resp.Print()
 	}
 
 	switch subcommand {
@@ -148,11 +158,11 @@ func main() {
 		if reportSettings.ConfigOutput {
 			b, err := json.Marshal(reportSettings)
 			if err != nil {
-				handleError(err.Error(), 2, reportSettings.JSONOutput)
+				return handleError(err.Error(), 2, reportSettings.JSONOutput)
 			}
 
 			fmt.Println(string(b))
-			os.Exit(0)
+			return 0
 		}
 
 		// TODO: implement continue option
@@ -161,7 +171,7 @@ func main() {
 		// TODO reportSettings.Overwrite is not respected
 		rep, err := internals.NewReportWriter(reportSettings.Output)
 		if err != nil {
-			handleError(err.Error(), 2, reportSettings.JSONOutput)
+			return handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
 		// NOTE since we create a file descriptor for the output file here already,
 		//      we need to exclude it from the walk finding all paths.
@@ -171,11 +181,11 @@ func main() {
 
 		fullPath, err := filepath.Abs(reportSettings.BaseNode)
 		if err != nil {
-			handleError(err.Error(), 2, reportSettings.JSONOutput)
+			return handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
 		err = rep.HeadLine(reportSettings.HashAlgorithm, !reportSettings.EmptyMode, reportSettings.BaseNodeName, fullPath)
 		if err != nil {
-			handleError(err.Error(), 2, reportSettings.JSONOutput)
+			return handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
 
 		// walk and write tail lines
@@ -190,15 +200,15 @@ func main() {
 		for entry := range entries {
 			err = rep.TailLine(entry.HashValue, entry.NodeType, entry.FileSize, entry.Path)
 			if err != nil {
-				handleError(err.Error(), 2, reportSettings.JSONOutput)
+				return handleError(err.Error(), 2, reportSettings.JSONOutput)
 			}
 		}
 
 		err, ok := <-errChan
 		if ok {
-			handleError(err.Error(), 2, reportSettings.JSONOutput)
+			return handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
-		os.Exit(0)
+		return 0
 
 	case find.cmd.FullCommand():
 		findSettings, err := find.Validate()
@@ -210,11 +220,10 @@ func main() {
 			// config output is printed in JSON independent of findSettings.JSONOutput
 			b, err := json.Marshal(findSettings)
 			if err != nil {
-				handleError(err.Error(), 2, findSettings.JSONOutput)
-				return
+				return handleError(err.Error(), 2, findSettings.JSONOutput)
 			}
 			fmt.Println(string(b))
-			return
+			return 0
 		}
 
 		errChan := make(chan error)
@@ -276,7 +285,7 @@ func main() {
 
 		internals.FindDuplicates(findSettings.Reports, dupEntries, errChan)
 		wg.Wait()
-		os.Exit(exitCode)
+		return exitCode
 
 	case stats.cmd.FullCommand():
 		statsSettings, err := stats.Validate()
@@ -300,16 +309,15 @@ func main() {
 			// config output is printed in JSON independent of hashSettings.JSONOutput
 			b, err := json.Marshal(hashSettings)
 			if err != nil {
-				handleError(err.Error(), 2, hashSettings.JSONOutput)
-				return
+				return handleError(err.Error(), 2, hashSettings.JSONOutput)
 			}
 			fmt.Println(string(b))
-			return
+			return 0
 		}
 
 		fileinfo, err := os.Stat(hashSettings.BaseNode)
 		if err != nil {
-			handleError(err.Error(), 1, hashSettings.JSONOutput)
+			return handleError(err.Error(), 1, hashSettings.JSONOutput)
 		}
 
 		if fileinfo.IsDir() {
@@ -343,7 +351,7 @@ func main() {
 			// NOTE in this case, we don't generate fsstats
 			algo, err := internals.HashAlgorithmFromString(hashSettings.HashAlgorithm)
 			if err != nil {
-				handleError(err.Error(), 1, hashSettings.JSONOutput)
+				return handleError(err.Error(), 1, hashSettings.JSONOutput)
 			}
 			hash := algo.Algorithm()
 			digest := internals.HashNode(hash, hashSettings.BasenameMode, filepath.Dir(hashSettings.BaseNode), internals.FileData{
@@ -395,11 +403,10 @@ func main() {
 			// config output is printed in JSON independent of versionSettings.JSONOutput
 			b, err := json.Marshal(versionSettings)
 			if err != nil {
-				handleError(err.Error(), 2, versionSettings.JSONOutput)
-				return
+				return handleError(err.Error(), 2, versionSettings.JSONOutput)
 			}
 			fmt.Println(string(b))
-			return
+			return 0
 		}
 
 		versionString := fmt.Sprintf("%d.%d.%d", v1.VERSION_MAJOR, v1.VERSION_MINOR, v1.VERSION_PATCH)
@@ -414,14 +421,21 @@ func main() {
 
 			b, err := json.Marshal(&output{versionString})
 			if err != nil {
-				handleError(err.Error(), 2, versionSettings.JSONOutput)
-				return
+				return handleError(err.Error(), 2, versionSettings.JSONOutput)
+				return 0
 			}
 			fmt.Println(string(b))
-			return
+			return 0
 		}
 
 	default:
 		kingpin.FatalUsage("unknown command")
 	}
+
+	return 0
+}
+
+func main() {
+	exitcode := cli()
+	os.Exit(exitcode)
 }

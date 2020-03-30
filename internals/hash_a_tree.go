@@ -654,6 +654,19 @@ func HashATree(
 
 	var wg sync.WaitGroup
 
+	// <profiling>
+	/*go func() {
+		time.Sleep(10 * time.Second)
+		fd, err := os.Create("mem.prof")
+		if err != nil {
+			errChan <- err
+			return
+		}
+		pprof.WriteHeapProfile(fd)
+		fd.Close()
+	}()*/
+	// </profiling>
+
 	go unitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.DigestSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
 	for i := 0; i < 4; i++ {
 		go unitHashFile(h, basenameMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
