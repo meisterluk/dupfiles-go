@@ -7,6 +7,7 @@ import (
 
 // ReportHeadLine contains data stored in the head line of a report file
 type ReportHeadLine struct {
+	// TODO add directory separator entry?
 	Version       [3]uint16
 	Timestamp     time.Time
 	HashAlgorithm string

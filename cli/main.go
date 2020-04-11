@@ -4,10 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/meisterluk/dupfiles-go/internals"
 	v1 "github.com/meisterluk/dupfiles-go/v1"
@@ -19,6 +21,7 @@ var report *cliReportCommand
 var find *cliFindCommand
 var stats *cliStatsCommand
 var digest *cliDigestCommand
+var diff *cliDiffCommand
 var hashAlgos *cliHashAlgosCommand
 var version *cliVersionCommand
 
@@ -125,6 +128,7 @@ func init() {
 	find = newCLIFindCommand(app)
 	stats = newCLIStatsCommand(app)
 	digest = newCLIDigestCommand(app)
+	diff = newCLIDiffCommand(app)
 	hashAlgos = newCLIHashAlgosCommand(app)
 	version = newCLIVersionCommand(app)
 }
@@ -167,8 +171,13 @@ func cli() int {
 
 		// TODO: implement continue option
 
+		// consider reportSettings.Overwrite
+		_, err = os.Stat(reportSettings.Output)
+		if err == nil && !reportSettings.Overwrite {
+			return handleError(fmt.Sprintf(`file '%s' already exists and --overwrite was not specified`, reportSettings.Output), 2, reportSettings.JSONOutput)
+		}
+
 		// create report
-		// TODO reportSettings.Overwrite is not respected
 		rep, err := internals.NewReportWriter(reportSettings.Output)
 		if err != nil {
 			return handleError(err.Error(), 2, reportSettings.JSONOutput)
@@ -208,6 +217,10 @@ func cli() int {
 		if ok {
 			return handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
+
+		// TODO: write "… written."
+		// TODO: jsonOutput
+
 		return 0
 
 	case find.cmd.FullCommand():
@@ -224,6 +237,12 @@ func cli() int {
 			}
 			fmt.Println(string(b))
 			return 0
+		}
+
+		// consider findSettings.Overwrite
+		_, err = os.Stat(findSettings.Output)
+		if err == nil && !findSettings.Overwrite {
+			return handleError(fmt.Sprintf(`file '%s' already exists and --overwrite was not specified`, findSettings.Output), 2, findSettings.JSONOutput)
 		}
 
 		errChan := make(chan error)
@@ -277,7 +296,7 @@ func cli() int {
 					for _, s := range entry.Set {
 						out += `  ` + s.ReportFile + " " + string(filepath.Separator) + " " + s.Path + "\n"
 					}
-					fmt.Println(out)
+					fmt.Println(out) // TODO or findSettings.Output
 					//log.Println("</duplicates>")
 				}
 			}
@@ -293,11 +312,155 @@ func cli() int {
 			kingpin.FatalUsage(err.Error())
 		}
 
-		b, err := json.Marshal(statsSettings)
-		if err != nil {
-			fmt.Println("error:", err)
+		if statsSettings.ConfigOutput {
+			// config output is printed in JSON independent of statsSettings.JSONOutput
+			b, err := json.Marshal(statsSettings)
+			if err != nil {
+				return handleError(err.Error(), 2, statsSettings.JSONOutput)
+			}
+			fmt.Println(string(b))
+			return 0
 		}
-		fmt.Println(string(b))
+
+		type sizeEntry struct {
+			Path string `json:"path"`
+			Size uint64 `json:"size"`
+		}
+
+		// BriefReportStatistics contains statistics collected from
+		// a report file and only requires single-pass parsing and
+		// constant memory to evaluate those statistics
+		type BriefReportStatistics struct {
+			HeadVersion         [3]uint16     `json:"head-version"`
+			HeadTimestamp       time.Time     `json:"head-timestamp"`
+			HeadHashAlgorithm   string        `json:"head-hash-algorithm"`
+			HeadBasenameMode    bool          `json:"head-basename-mode"`
+			HeadNodeName        string        `json:"head-node-name"`
+			HeadBasePath        string        `json:"head-base-path"`
+			NumUNIXDeviceFile   uint32        `json:"count-unix-device"`
+			NumDirectory        uint32        `json:"count-directory"`
+			NumRegularFile      uint32        `json:"count-regular-file"`
+			NumLink             uint32        `json:"count-link"`
+			NumFIFOPipe         uint32        `json:"count-fifo-pipe"`
+			NumUNIXDomainSocket uint32        `json:"count-unix-socket"`
+			MaxDepth            uint16        `json:"fs-depth-max"`
+			TotalSize           uint64        `json:"fs-size-total"`
+			Top10MaxSizeFiles   [10]sizeEntry `json:"files-size-max-top10"`
+		}
+		// BriefReportStatistics contains statistics collected from
+		// a report file and requires linear time and linear memory
+		// to evaluate those statistics
+		type LongReportStatistics struct {
+			// {average, median, min, max} number of children in a folder?
+		}
+
+		rep, err := internals.NewReportReader(statsSettings.Report)
+		if err != nil {
+			return handleError(err.Error(), 2, statsSettings.JSONOutput)
+		}
+		var briefStats BriefReportStatistics
+		for {
+			tail, err := rep.Iterate()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				rep.Close()
+				return handleError(err.Error(), 2, statsSettings.JSONOutput)
+			}
+
+			// consider node type
+			switch tail.NodeType {
+			case 'D':
+				briefStats.NumDirectory++
+			case 'C':
+				briefStats.NumUNIXDeviceFile++
+			case 'F':
+				briefStats.NumRegularFile++
+			case 'L':
+				briefStats.NumLink++
+			case 'P':
+				briefStats.NumFIFOPipe++
+			case 'S':
+				briefStats.NumUNIXDomainSocket++
+			default:
+				return handleError(
+					fmt.Sprintf(`unknown node type '%c'`, tail.NodeType),
+					2, statsSettings.JSONOutput,
+				)
+			}
+
+			// consider folder depth
+			depth := internals.DetermineDepth(tail.Path)
+			if depth > briefStats.MaxDepth {
+				briefStats.MaxDepth = depth
+			}
+
+			// consider size
+			briefStats.TotalSize += tail.FileSize
+			oldTotalSize := briefStats.TotalSize
+			if oldTotalSize > briefStats.TotalSize {
+				return handleError(
+					fmt.Sprintf(`total-size overflowed from %d to %d`, oldTotalSize, briefStats.TotalSize),
+					2, statsSettings.JSONOutput,
+				)
+			}
+
+			for i := 0; i < 10; i++ {
+				if tail.NodeType == 'D' {
+					continue
+				}
+				if briefStats.Top10MaxSizeFiles[i].Size > tail.FileSize {
+					continue
+				}
+				tmp := briefStats.Top10MaxSizeFiles[i]
+				briefStats.Top10MaxSizeFiles[i].Size = tail.FileSize
+				briefStats.Top10MaxSizeFiles[i].Path = tail.Path
+				for j := i + 1; j < 10; j++ {
+					tmp2 := briefStats.Top10MaxSizeFiles[j]
+					briefStats.Top10MaxSizeFiles[j] = tmp
+					tmp = tmp2
+				}
+				break
+			}
+		}
+
+		// report Head data
+		briefStats.HeadVersion = rep.Head.Version
+		briefStats.HeadTimestamp = rep.Head.Timestamp
+		briefStats.HeadHashAlgorithm = rep.Head.HashAlgorithm
+		briefStats.HeadBasenameMode = rep.Head.BasenameMode
+		briefStats.HeadNodeName = rep.Head.NodeName
+		briefStats.HeadBasePath = rep.Head.BasePath
+
+		var longStats LongReportStatistics
+		if statsSettings.Long {
+			// which data will be evaluated here?
+		}
+
+		type output struct {
+			Brief BriefReportStatistics `json:"brief"`
+			Long  LongReportStatistics  `json:"long"`
+		}
+		var out output
+		out.Brief = briefStats
+		out.Long = longStats
+
+		if statsSettings.JSONOutput {
+			jsonRepr, err := json.Marshal(&out)
+			if err != nil {
+				return handleError(err.Error(), 2, statsSettings.JSONOutput)
+			}
+			fmt.Fprintln(os.Stdout, string(jsonRepr))
+		} else {
+			jsonRepr, err := json.MarshalIndent(&out, "", "  ")
+			if err != nil {
+				return handleError(err.Error(), 2, statsSettings.JSONOutput)
+			}
+			fmt.Fprintln(os.Stdout, string(jsonRepr))
+		}
+
+		rep.Close()
 
 	case digest.cmd.FullCommand():
 		hashSettings, err := digest.Validate()
@@ -362,6 +525,122 @@ func cli() int {
 			})
 			fmt.Println(hex.EncodeToString(digest))
 		}
+		// TODO json Output
+
+	case diff.cmd.FullCommand():
+		diffSettings, err := diff.Validate()
+		if err != nil {
+			kingpin.FatalUsage(err.Error())
+		}
+
+		if diffSettings.ConfigOutput {
+			// config output is printed in JSON independent of diffSettings.JSONOutput
+			b, err := json.Marshal(diffSettings)
+			if err != nil {
+				return handleError(err.Error(), 2, diffSettings.JSONOutput)
+			}
+			fmt.Println(string(b))
+			return 0
+		}
+
+		type Identifier struct {
+			Digest   string
+			BaseName string
+		}
+		type match []bool
+		type matches map[Identifier]match
+
+		// use the first set to determine the set
+		diffMatches := make(matches)
+		anyFound := make([]bool, len(diffSettings.Targets))
+		for t, match := range diffSettings.Targets {
+			rep, err := internals.NewReportReader(match.Report)
+			if err != nil {
+				return handleError(err.Error(), 2, diffSettings.JSONOutput)
+			}
+			fmt.Fprintf(os.Stderr, "# %s ⇒ %s\n", match.Report, match.BaseNode)
+			for {
+				tail, err := rep.Iterate()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					rep.Close()
+					return handleError(err.Error(), 2, diffSettings.JSONOutput)
+				}
+
+				// TODO this assumes that paths are canonical and do not end with a folder separator
+				if tail.Path == match.BaseNode && (tail.NodeType == 'D' || tail.NodeType == 'L') {
+					anyFound[t] = true
+				}
+				if filepath.Dir(tail.Path) != match.BaseNode {
+					continue
+				}
+
+				given := Identifier{Digest: string(tail.HashValue), BaseName: filepath.Base(tail.Path)}
+				value, ok := diffMatches[given]
+				if ok {
+					value[t] = true
+				} else {
+					diffMatches[given] = make([]bool, len(diffSettings.Targets))
+					diffMatches[given][t] = true
+				}
+			}
+			rep.Close()
+		}
+
+		if diffSettings.JSONOutput {
+			type jsonObject struct {
+				Basename string   `json:"basename"`
+				Digest   string   `json:"digest"`
+				OccursIn []string `json:"occurs-in"`
+			}
+			type jsonOutput struct {
+				Children []jsonObject `json:"children"`
+			}
+
+			data := jsonOutput{Children: make([]jsonObject, 0, len(diffMatches))}
+			for id, diffMatch := range diffMatches {
+				occurences := make([]string, 0, len(diffSettings.Targets))
+				for i, matches := range diffMatch {
+					if matches {
+						occurences = append(occurences, diffSettings.Targets[i].Report)
+					}
+				}
+				data.Children = append(data.Children, jsonObject{
+					Basename: id.BaseName,
+					Digest:   hex.EncodeToString([]byte(id.Digest)),
+					OccursIn: occurences,
+				})
+			}
+
+			jsonRepr, err := json.Marshal(&data)
+			if err != nil {
+				return handleError(err.Error(), 2, diffSettings.JSONOutput)
+			}
+			fmt.Fprintln(os.Stdout, string(jsonRepr))
+
+		} else {
+			for i, anyMatch := range anyFound {
+				if !anyMatch {
+					fmt.Printf("# not found: '%s' in '%s'\n", diffSettings.Targets[i].Report, diffSettings.Targets[i].BaseNode)
+				}
+			}
+
+			fmt.Println("")
+			fmt.Println("# '+' means found, '-' means missing")
+
+			for id, diffMatch := range diffMatches {
+				for _, matched := range diffMatch {
+					if matched {
+						fmt.Printf("+")
+					} else {
+						fmt.Printf("-")
+					}
+				}
+				fmt.Println("\t", hex.EncodeToString([]byte(id.Digest)), "\t", id.BaseName)
+			}
+		}
 
 	case hashAlgos.cmd.FullCommand():
 		hashAlgosSettings, err := hashAlgos.Validate()
@@ -391,6 +670,7 @@ func cli() int {
 		if err != nil {
 			fmt.Println("error:", err)
 		}
+		// TODO jsonOutput
 		fmt.Println(string(b))
 
 	case version.cmd.FullCommand():
@@ -422,7 +702,6 @@ func cli() int {
 			b, err := json.Marshal(&output{versionString})
 			if err != nil {
 				return handleError(err.Error(), 2, versionSettings.JSONOutput)
-				return 0
 			}
 			fmt.Println(string(b))
 			return 0

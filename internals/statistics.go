@@ -11,7 +11,7 @@ import (
 // Statistics collects data of the preevaluation
 type Statistics struct {
 	MaxSize      uint64
-	MaxDepth     uint32
+	MaxDepth     uint16
 	CountFiles   uint32
 	CountFolders uint32
 	ErrorMessage error
@@ -120,7 +120,7 @@ func GenerateStatistics(baseNode string, ignorePermErrors bool, excludeBasename,
 		}
 
 		// handle depth
-		depth := determineDepth(path)
+		depth := DetermineDepth(path)
 		if depth > stats.MaxDepth {
 			stats.MaxDepth = depth
 		}

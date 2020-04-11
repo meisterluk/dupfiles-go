@@ -146,13 +146,13 @@ func isPermissionError(err error) bool {
 	return errors.Is(err, os.ErrPermission)
 }
 
-// determineDepth determines the filepath depth of the given filepath.
+// DetermineDepth determines the filepath depth of the given filepath.
 // For example `a/b` returns 1 and `d/c/b/a` returns 3.
-func determineDepth(path string) uint32 {
+func DetermineDepth(path string) uint16 {
 	// NOTE  This implementation is presumably very inaccurate.
 	//       But there is no cross-platform way in golang to do this.
 	p := strings.Trim(path, string(filepath.Separator)) // remove leading/trailing separators
-	return uint32(strings.Count(p, string(filepath.Separator)))
+	return uint16(strings.Count(p, string(filepath.Separator)))
 }
 
 // dir returns the directory component of a given filepath (similar to filepath.Dir).
