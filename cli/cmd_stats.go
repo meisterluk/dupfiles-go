@@ -213,4 +213,6 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 	}
 
 	rep.Close()
+
+	return 0, nil
 }

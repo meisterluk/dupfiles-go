@@ -41,16 +41,6 @@ func envToInt(envKey string) (int, bool) {
 	return int(i), true
 }
 
-// Was the JSON output format requested?
-func jsonOutput() bool {
-	for _, arg := range os.Args[1:] {
-		if arg == "--json" {
-			return true
-		}
-	}
-	return false
-}
-
 // countCPUs determines the number of logical CPUs in this machine
 func countCPUs() int {
 	return runtime.NumCPU()

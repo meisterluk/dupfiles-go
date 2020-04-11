@@ -87,7 +87,7 @@ func init() {
 	app.HelpFlag.Short('h')
 
 	// if --json, show help as JSON
-	if jsonOutput() {
+	if internals.Contains(os.Args[1:], "--json") {
 		app.UsageTemplate(usageTemplate)
 	} else {
 		app.UsageTemplate(kingpin.CompactUsageTemplate)
@@ -103,6 +103,7 @@ func init() {
 }
 
 // RunCLI executes the command line given in args.
+// It basically dispatches to a subcommand.
 // It writes the result to Output w and errors/information messages to log.
 // It returns a triple (exit code, error)
 func RunCLI(args []string, w Output, log Output) (int, bool, error) {
@@ -122,10 +123,8 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 
 	subcommand, err := app.Parse(args)
 	if err != nil {
-		return 1, internals.Contains(args, "--json"), err
+		return 1, jsonOutput, err
 	}
-
-	// TODO verify that all input files are properly UTF-8 encoded ⇒ output if properly UTF-8 encoded
 
 	switch subcommand {
 	case report.cmd.FullCommand():
@@ -218,6 +217,7 @@ func main() {
 	//   9 → value error if some report file contains invalid content
 	//   10 → command line was invalid, like argument type or missing required argument
 	//   11 → internal programming error - please report me! (assertion/invariant failed)
+	// TODO verify that all input files are properly UTF-8 encoded ⇒ output if properly UTF-8 encoded
 
 	if err == nil {
 		os.Exit(exitcode)

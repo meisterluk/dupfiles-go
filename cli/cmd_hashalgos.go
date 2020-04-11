@@ -98,4 +98,6 @@ func (c *HashAlgosCommand) Run(w Output, log Output) (int, error) {
 		}
 		w.Println(string(jsonRepr))
 	}
+
+	return 0, nil
 }
