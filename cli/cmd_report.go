@@ -40,7 +40,7 @@ func newCLIReportCommand(app *kingpin.Application) *cliReportCommand {
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
 	c.BaseNodeName = c.cmd.Flag("basenode-name", "human-readable base node name in head line").Short('b').String()
 	c.Overwrite = c.cmd.Flag("overwrite", "if filepath already exists, overwrite it without asking").Bool()
-	c.Output = c.cmd.Flag("output", "target location for report").Default(envOr("DUPFILES_OUTPUT", "report.fstree")).Short('o').String()
+	c.Output = c.cmd.Flag("output", "target location for report").Default(envOr("DUPFILES_OUTPUT", "")).Short('o').String()
 	c.Continue = c.cmd.Flag("continue", "assume that the output file is incomplete and we continue processing").Short('c').Bool()
 	c.DFS = c.cmd.Flag("dfs", "apply depth-first search for file system").Bool()
 	c.BFS = c.cmd.Flag("bfs", "apply breadth-first search for file system").Bool()
@@ -138,6 +138,10 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 	}
 	if !cmd.EmptyMode && !cmd.BasenameMode {
 		cmd.BasenameMode = true
+	}
+
+	if cmd.Output == "" {
+		cmd.Output = cmd.BaseNodeName + ".fstree"
 	}
 
 	// validity check 2
