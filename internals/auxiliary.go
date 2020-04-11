@@ -11,8 +11,8 @@ import (
 	"unicode/utf8"
 )
 
-// contains tests whether the given slice contains a particular string item
-func contains(set []string, item string) bool {
+// Contains tests whether the given slice contains a particular string item
+func Contains(set []string, item string) bool {
 	for _, element := range set {
 		if item == element {
 			return true

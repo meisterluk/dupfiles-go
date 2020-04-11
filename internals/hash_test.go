@@ -1,14 +1,15 @@
 package internals
 
-import "testing"
-
-import "encoding/hex"
+import (
+	"encoding/hex"
+	"testing"
+)
 
 func TestSupportedHashAlgorithms(t *testing.T) {
 	algos := SupportedHashAlgorithms()
 	required := []string{`crc64`, `fnv-1a-32`, `fnv-1a-128`, `sha-256`, `sha-512`, `sha-3-512`}
 	for _, requiredAlgo := range required {
-		if !contains(algos, requiredAlgo) {
+		if !Contains(algos, requiredAlgo) {
 			t.Errorf(`Expected required hash algo %s, but is not supported`, requiredAlgo)
 		}
 	}

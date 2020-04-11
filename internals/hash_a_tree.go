@@ -111,7 +111,7 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 	}
 
 	// test exclusion trees
-	if contains(params.excludeTree, nodePath) {
+	if Contains(params.excludeTree, nodePath) {
 		return false, nil
 	}
 
@@ -131,7 +131,7 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			}
 
 			// test exclusions
-			if contains(params.excludeBasename, entry.Name()) {
+			if Contains(params.excludeBasename, entry.Name()) {
 				continue DIR
 			}
 			for _, regex := range params.excludeBasenameRegex {
@@ -157,7 +157,7 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			}
 
 			// test exclusions
-			if contains(params.excludeBasename, entry.Name()) {
+			if Contains(params.excludeBasename, entry.Name()) {
 				continue FILE
 			}
 			for _, regex := range params.excludeBasenameRegex {
@@ -210,7 +210,7 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 	}
 
 	// test exclusion trees
-	if contains(params.excludeTree, nodePath) {
+	if Contains(params.excludeTree, nodePath) {
 		return false, nil
 	}
 
@@ -230,7 +230,7 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			}
 
 			// test exclusions
-			if contains(params.excludeBasename, entry.Name()) {
+			if Contains(params.excludeBasename, entry.Name()) {
 				continue FILE
 			}
 			for _, regex := range params.excludeBasenameRegex {
@@ -256,7 +256,7 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			}
 
 			// test exclusions
-			if contains(params.excludeBasename, entry.Name()) {
+			if Contains(params.excludeBasename, entry.Name()) {
 				continue DIR
 			}
 			for _, regex := range params.excludeBasenameRegex {

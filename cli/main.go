@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,7 +12,7 @@ import (
 
 	"github.com/meisterluk/dupfiles-go/internals"
 	v1 "github.com/meisterluk/dupfiles-go/v1"
-	"gopkg.in/alecthomas/kingpin.v2"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var app *kingpin.Application
@@ -84,6 +83,10 @@ const usageTemplate = `{{define "FormatCommand"}}\
 }
 `
 
+const E_EXISTS = `file '%s' already exists and --overwrite was not specified`
+const E_CONFIG_JSON = `could not serialize config JSON: %s`
+const E_RESULT_JSON = `could not serialize result JSON: %s`
+
 // CLI response for errors
 type errorResponse struct {
 	ErrorMessage string `json:"error"`
@@ -133,11 +136,11 @@ func init() {
 	version = newCLIVersionCommand(app)
 }
 
-func cli() int {
-	// <profiling>
+func cli(w Output, log Output) (int, bool, error) {
+	// <profiling> TODO
 	/*f, err := os.Create("cpu.prof")
 	if err != nil {
-		log.Println(err)
+		w.Println(err)
 		return 200
 	}
 	pprof.StartCPUProfile(f)
@@ -147,26 +150,29 @@ func cli() int {
 	subcommand, err := app.Parse(os.Args[1:])
 
 	if err != nil {
-		resp := &errorResponse{err.Error(), 1}
-		return resp.Print()
+		return 1, internals.Contains(os.Args[1:], "--json"), err
 	}
 
+	// TODO verify that all input files are properly UTF-8 encoded ⇒ output if properly UTF-8 encoded
+
+	var jsonOutput bool
 	switch subcommand {
 	case report.cmd.FullCommand():
 		reportSettings, err := report.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
+		jsonOutput = reportSettings.JSONOutput
 
 		// config output
 		if reportSettings.ConfigOutput {
 			b, err := json.Marshal(reportSettings)
 			if err != nil {
-				return handleError(err.Error(), 2, reportSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_CONFIG_JSON, err)
 			}
 
-			fmt.Println(string(b))
-			return 0
+			w.Println(string(b))
+			return 0, reportSettings.JSONOutput, nil
 		}
 
 		// TODO: implement continue option
@@ -174,13 +180,13 @@ func cli() int {
 		// consider reportSettings.Overwrite
 		_, err = os.Stat(reportSettings.Output)
 		if err == nil && !reportSettings.Overwrite {
-			return handleError(fmt.Sprintf(`file '%s' already exists and --overwrite was not specified`, reportSettings.Output), 2, reportSettings.JSONOutput)
+			return 3, jsonOutput, fmt.Errorf(E_EXISTS, reportSettings.Output)
 		}
 
 		// create report
 		rep, err := internals.NewReportWriter(reportSettings.Output)
 		if err != nil {
-			return handleError(err.Error(), 2, reportSettings.JSONOutput)
+			return 2, jsonOutput, fmt.Errorf(`error writing file '%s': %s`, reportSettings.Output, err)
 		}
 		// NOTE since we create a file descriptor for the output file here already,
 		//      we need to exclude it from the walk finding all paths.
@@ -190,11 +196,11 @@ func cli() int {
 
 		fullPath, err := filepath.Abs(reportSettings.BaseNode)
 		if err != nil {
-			return handleError(err.Error(), 2, reportSettings.JSONOutput)
+			return 6, jsonOutput, err
 		}
 		err = rep.HeadLine(reportSettings.HashAlgorithm, !reportSettings.EmptyMode, reportSettings.BaseNodeName, fullPath)
 		if err != nil {
-			return handleError(err.Error(), 2, reportSettings.JSONOutput)
+			return 6, jsonOutput, err
 		}
 
 		// walk and write tail lines
@@ -209,13 +215,14 @@ func cli() int {
 		for entry := range entries {
 			err = rep.TailLine(entry.HashValue, entry.NodeType, entry.FileSize, entry.Path)
 			if err != nil {
-				return handleError(err.Error(), 2, reportSettings.JSONOutput)
+				return 2, jsonOutput, err
 			}
 		}
 
 		err, ok := <-errChan
 		if ok {
-			return handleError(err.Error(), 2, reportSettings.JSONOutput)
+			// TODO proper exit code required
+			return 6, jsonOutput, err
 		}
 
 		msg := fmt.Sprintf(`Done. File "%s" written`, reportSettings.Output)
@@ -227,36 +234,38 @@ func cli() int {
 			data := output{Message: msg}
 			jsonRepr, err := json.Marshal(&data)
 			if err != nil {
-				return handleError(err.Error(), 2, reportSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
 			}
 
-			os.Stdout.Write(jsonRepr)
+			w.Println(string(jsonRepr))
 		} else {
-			os.Stdout.Write([]byte(msg + "\n"))
+			w.Println(msg)
 		}
 
-		return 0
+		return 0, jsonOutput, nil
 
 	case find.cmd.FullCommand():
 		findSettings, err := find.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
+		jsonOutput = findSettings.JSONOutput
 
 		if findSettings.ConfigOutput {
 			// config output is printed in JSON independent of findSettings.JSONOutput
 			b, err := json.Marshal(findSettings)
 			if err != nil {
-				return handleError(err.Error(), 2, findSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_CONFIG_JSON, err)
 			}
-			fmt.Println(string(b))
-			return 0
+
+			w.Println(string(b))
+			return 0, jsonOutput, nil
 		}
 
 		// consider findSettings.Overwrite
 		_, err = os.Stat(findSettings.Output)
 		if err == nil && !findSettings.Overwrite {
-			return handleError(fmt.Sprintf(`file '%s' already exists and --overwrite was not specified`, findSettings.Output), 2, findSettings.JSONOutput)
+			return 3, jsonOutput, fmt.Errorf(E_EXISTS, findSettings.Output)
 		}
 
 		errChan := make(chan error)
@@ -269,8 +278,10 @@ func cli() int {
 			// error goroutine
 			defer wg.Done()
 			for err := range errChan {
-				log.Println(`error:`, err)
+				log.Printfln(`error: %s`, err)
 			}
+			// TODO is this proper error handling? is the exit code properly propagated?
+			// TODO JSON output support
 		}()
 		go func() {
 			// duplicates goroutine
@@ -294,13 +305,14 @@ func cli() int {
 					}
 
 					// marshal to JSON
-					jsonDump, err := json.Marshal(entries)
+					jsonDump, err := json.Marshal(&entries)
 					if err != nil {
-						log.Printf(`error marshalling result: %s`, err.Error())
+						log.Printfln(`error marshalling result: %s`, err.Error())
+						// TODO? return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
 						continue
 					}
 
-					os.Stdout.Write(jsonDump)
+					w.Println(string(jsonDump))
 				}
 
 			} else {
@@ -310,7 +322,8 @@ func cli() int {
 					for _, s := range entry.Set {
 						out += `  ` + s.ReportFile + " " + string(filepath.Separator) + " " + s.Path + "\n"
 					}
-					fmt.Println(out) // TODO or findSettings.Output
+					w.Println(out) // TODO or findSettings.Output
+					// TODO json output support
 					//log.Println("</duplicates>")
 				}
 			}
@@ -318,22 +331,25 @@ func cli() int {
 
 		internals.FindDuplicates(findSettings.Reports, dupEntries, errChan)
 		wg.Wait()
-		return exitCode
+
+		// TODO: print debug.GCStats ?
+		return exitCode, jsonOutput, nil
 
 	case stats.cmd.FullCommand():
 		statsSettings, err := stats.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
+		jsonOutput = statsSettings.JSONOutput
 
 		if statsSettings.ConfigOutput {
 			// config output is printed in JSON independent of statsSettings.JSONOutput
 			b, err := json.Marshal(statsSettings)
 			if err != nil {
-				return handleError(err.Error(), 2, statsSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_CONFIG_JSON, err)
 			}
-			fmt.Println(string(b))
-			return 0
+			w.Println(string(b))
+			return 0, jsonOutput, nil
 		}
 
 		type sizeEntry struct {
@@ -370,7 +386,7 @@ func cli() int {
 
 		rep, err := internals.NewReportReader(statsSettings.Report)
 		if err != nil {
-			return handleError(err.Error(), 2, statsSettings.JSONOutput)
+			return 1, jsonOutput, fmt.Errorf(`failure reading report file '%s': %s`, statsSettings.Report, err)
 		}
 		var briefStats BriefReportStatistics
 		for {
@@ -380,7 +396,7 @@ func cli() int {
 			}
 			if err != nil {
 				rep.Close()
-				return handleError(err.Error(), 2, statsSettings.JSONOutput)
+				return 9, jsonOutput, fmt.Errorf(`failure reading report file '%s' tailline: %s`, statsSettings.Report, err)
 			}
 
 			// consider node type
@@ -398,10 +414,7 @@ func cli() int {
 			case 'S':
 				briefStats.NumUNIXDomainSocket++
 			default:
-				return handleError(
-					fmt.Sprintf(`unknown node type '%c'`, tail.NodeType),
-					2, statsSettings.JSONOutput,
-				)
+				return 9, jsonOutput, fmt.Errorf(`unknown node type '%c'`, tail.NodeType)
 			}
 
 			// consider folder depth
@@ -414,10 +427,7 @@ func cli() int {
 			briefStats.TotalSize += tail.FileSize
 			oldTotalSize := briefStats.TotalSize
 			if oldTotalSize > briefStats.TotalSize {
-				return handleError(
-					fmt.Sprintf(`total-size overflowed from %d to %d`, oldTotalSize, briefStats.TotalSize),
-					2, statsSettings.JSONOutput,
-				)
+				return 11, jsonOutput, fmt.Errorf(`total-size overflowed from %d to %d`, oldTotalSize, briefStats.TotalSize)
 			}
 
 			for i := 0; i < 10; i++ {
@@ -452,26 +462,26 @@ func cli() int {
 			// which data will be evaluated here?
 		}
 
-		type output struct {
+		type resultJSON struct {
 			Brief BriefReportStatistics `json:"brief"`
 			Long  LongReportStatistics  `json:"long"`
 		}
-		var out output
+		var out resultJSON
 		out.Brief = briefStats
 		out.Long = longStats
 
-		if statsSettings.JSONOutput {
+		if jsonOutput {
 			jsonRepr, err := json.Marshal(&out)
 			if err != nil {
-				return handleError(err.Error(), 2, statsSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
 			}
-			fmt.Fprintln(os.Stdout, string(jsonRepr))
+			w.Println(string(jsonRepr))
 		} else {
 			jsonRepr, err := json.MarshalIndent(&out, "", "  ")
 			if err != nil {
-				return handleError(err.Error(), 2, statsSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
 			}
-			fmt.Fprintln(os.Stdout, string(jsonRepr))
+			w.Println(string(jsonRepr))
 		}
 
 		rep.Close()
@@ -481,26 +491,27 @@ func cli() int {
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
+		jsonOutput = hashSettings.JSONOutput
 
 		if hashSettings.ConfigOutput {
 			// config output is printed in JSON independent of hashSettings.JSONOutput
 			b, err := json.Marshal(hashSettings)
 			if err != nil {
-				return handleError(err.Error(), 2, hashSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_CONFIG_JSON, err)
 			}
-			fmt.Println(string(b))
-			return 0
+			w.Println(string(b))
+			return 0, jsonOutput, nil
 		}
 
 		fileinfo, err := os.Stat(hashSettings.BaseNode)
 		if err != nil {
-			return handleError(err.Error(), 1, hashSettings.JSONOutput)
+			return 6, jsonOutput, err
 		}
 
 		if fileinfo.IsDir() {
 			// generate fsstats concurrently
 			stats := internals.GenerateStatistics(hashSettings.BaseNode, hashSettings.IgnorePermErrors, hashSettings.ExcludeBasename, hashSettings.ExcludeBasenameRegex, hashSettings.ExcludeTree)
-			log.Println(stats.String())
+			w.Println(stats.String())
 
 			// traverse tree
 			output := make(chan internals.ReportTailLine)
@@ -511,24 +522,41 @@ func cli() int {
 			)
 
 			// read value from evaluation
-			targetDigest := make([]byte, 128) // 128 bytes = 1024 bits digest output
+			digest := make([]byte, 128) // 128 bytes = 1024 bits digest output
 			for tailline := range output {
 				if tailline.Path == "." {
-					copy(targetDigest, tailline.HashValue)
+					copy(digest, tailline.HashValue)
 				}
 			}
 
 			err, ok := <-errChan
 			if ok {
-				log.Println(err)
-			} else {
-				fmt.Println(hex.EncodeToString(targetDigest))
+				// TODO errChan does not propagate appropriate exit code
+				return 6, jsonOutput, err
 			}
+
+			if jsonOutput {
+				type jsonResult struct {
+					Digest string `json:"digest"`
+				}
+
+				data := jsonResult{Digest: hex.EncodeToString(digest)}
+				jsonRepr, err := json.Marshal(&data)
+				if err != nil {
+					return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
+				}
+
+				w.Println(string(jsonRepr))
+			} else {
+				w.Println(hex.EncodeToString(digest))
+			}
+
 		} else {
+
 			// NOTE in this case, we don't generate fsstats
 			algo, err := internals.HashAlgorithmFromString(hashSettings.HashAlgorithm)
 			if err != nil {
-				return handleError(err.Error(), 1, hashSettings.JSONOutput)
+				return 8, jsonOutput, err
 			}
 			hash := algo.Algorithm()
 			digest := internals.HashNode(hash, hashSettings.BasenameMode, filepath.Dir(hashSettings.BaseNode), internals.FileData{
@@ -537,24 +565,39 @@ func cli() int {
 				Size:   uint64(fileinfo.Size()),
 				Digest: []byte{},
 			})
-			fmt.Println(hex.EncodeToString(digest))
+
+			if jsonOutput {
+				type jsonResult struct {
+					Digest string `json:"digest"`
+				}
+
+				data := jsonResult{Digest: hex.EncodeToString(digest)}
+				jsonRepr, err := json.Marshal(&data)
+				if err != nil {
+					return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
+				}
+
+				w.Println(string(jsonRepr))
+			} else {
+				w.Println(hex.EncodeToString(digest))
+			}
 		}
-		// TODO json Output
 
 	case diff.cmd.FullCommand():
 		diffSettings, err := diff.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
+		jsonOutput = diffSettings.JSONOutput
 
 		if diffSettings.ConfigOutput {
 			// config output is printed in JSON independent of diffSettings.JSONOutput
 			b, err := json.Marshal(diffSettings)
 			if err != nil {
-				return handleError(err.Error(), 2, diffSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_CONFIG_JSON, err)
 			}
-			fmt.Println(string(b))
-			return 0
+			w.Println(string(b))
+			return 0, jsonOutput, nil
 		}
 
 		type Identifier struct {
@@ -570,7 +613,7 @@ func cli() int {
 		for t, match := range diffSettings.Targets {
 			rep, err := internals.NewReportReader(match.Report)
 			if err != nil {
-				return handleError(err.Error(), 2, diffSettings.JSONOutput)
+				return 1, jsonOutput, err
 			}
 			fmt.Fprintf(os.Stderr, "# %s ⇒ %s\n", match.Report, match.BaseNode)
 			for {
@@ -580,7 +623,7 @@ func cli() int {
 				}
 				if err != nil {
 					rep.Close()
-					return handleError(err.Error(), 2, diffSettings.JSONOutput)
+					return 9, jsonOutput, fmt.Errorf(`failure reading report file '%s' tailline: %s`, match.Report, err)
 				}
 
 				// TODO this assumes that paths are canonical and do not end with a folder separator
@@ -609,11 +652,11 @@ func cli() int {
 				Digest   string   `json:"digest"`
 				OccursIn []string `json:"occurs-in"`
 			}
-			type jsonOutput struct {
+			type jsonResult struct {
 				Children []jsonObject `json:"children"`
 			}
 
-			data := jsonOutput{Children: make([]jsonObject, 0, len(diffMatches))}
+			data := jsonResult{Children: make([]jsonObject, 0, len(diffMatches))}
 			for id, diffMatch := range diffMatches {
 				occurences := make([]string, 0, len(diffSettings.Targets))
 				for i, matches := range diffMatch {
@@ -630,29 +673,29 @@ func cli() int {
 
 			jsonRepr, err := json.Marshal(&data)
 			if err != nil {
-				return handleError(err.Error(), 2, diffSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
 			}
-			fmt.Fprintln(os.Stdout, string(jsonRepr))
+			w.Println(string(jsonRepr))
 
 		} else {
 			for i, anyMatch := range anyFound {
 				if !anyMatch {
-					fmt.Printf("# not found: '%s' in '%s'\n", diffSettings.Targets[i].Report, diffSettings.Targets[i].BaseNode)
+					log.Printf("# not found: '%s' in '%s'\n", diffSettings.Targets[i].Report, diffSettings.Targets[i].BaseNode)
 				}
 			}
 
-			fmt.Println("")
-			fmt.Println("# '+' means found, '-' means missing")
+			w.Println("")
+			w.Println("# '+' means found, '-' means missing")
 
 			for id, diffMatch := range diffMatches {
 				for _, matched := range diffMatch {
 					if matched {
-						fmt.Printf("+")
+						w.Printf("+")
 					} else {
-						fmt.Printf("-")
+						w.Printf("-")
 					}
 				}
-				fmt.Println("\t", hex.EncodeToString([]byte(id.Digest)), "\t", id.BaseName)
+				w.Printfln("\t%s\t%s", hex.EncodeToString([]byte(id.Digest)), id.BaseName)
 			}
 		}
 
@@ -660,6 +703,17 @@ func cli() int {
 		hashAlgosSettings, err := hashAlgos.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
+		}
+		jsonOutput = hashAlgosSettings.JSONOutput
+
+		if hashAlgosSettings.ConfigOutput {
+			// config output is printed in JSON independent of hashAlgosSettings.JSONOutput
+			b, err := json.Marshal(hashAlgosSettings)
+			if err != nil {
+				return 6, jsonOutput, fmt.Errorf(E_CONFIG_JSON, err)
+			}
+			w.Println(string(b))
+			return 0, jsonOutput, nil
 		}
 
 		type dataSet struct {
@@ -680,55 +734,109 @@ func cli() int {
 			}
 		}
 
-		b, err := json.Marshal(data)
-		if err != nil {
-			fmt.Println("error:", err)
+		if jsonOutput {
+			b, err := json.Marshal(&data)
+			if err != nil {
+				return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
+			}
+			w.Println(string(b))
+		} else {
+			jsonRepr, err := json.MarshalIndent(&data, "", "  ")
+			if err != nil {
+				return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
+			}
+			w.Println(string(jsonRepr))
 		}
-		// TODO jsonOutput
-		fmt.Println(string(b))
 
 	case version.cmd.FullCommand():
 		versionSettings, err := version.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
+		jsonOutput = versionSettings.JSONOutput
 
 		if versionSettings.ConfigOutput {
 			// config output is printed in JSON independent of versionSettings.JSONOutput
 			b, err := json.Marshal(versionSettings)
 			if err != nil {
-				return handleError(err.Error(), 2, versionSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_CONFIG_JSON, err)
 			}
-			fmt.Println(string(b))
-			return 0
+			w.Println(string(b))
+			return 0, jsonOutput, nil
 		}
 
 		versionString := fmt.Sprintf("%d.%d.%d", v1.VERSION_MAJOR, v1.VERSION_MINOR, v1.VERSION_PATCH)
 
-		if !versionSettings.JSONOutput {
-			fmt.Println(versionString)
-
-		} else {
-			type output struct {
+		if jsonOutput {
+			type jsonResult struct {
 				Version string `json:"version"`
 			}
 
-			b, err := json.Marshal(&output{versionString})
+			data := jsonResult{Version: versionString}
+			b, err := json.Marshal(&data)
 			if err != nil {
-				return handleError(err.Error(), 2, versionSettings.JSONOutput)
+				return 6, jsonOutput, fmt.Errorf(E_RESULT_JSON, err)
 			}
-			fmt.Println(string(b))
-			return 0
+			w.Println(string(b))
+
+		} else {
+			w.Println(versionString)
 		}
 
 	default:
-		kingpin.FatalUsage("unknown command")
+		return 0, jsonOutput, fmt.Errorf(`unknown subcommand '%s'`, subcommand)
 	}
 
-	return 0
+	return 0, jsonOutput, nil
 }
 
 func main() {
-	exitcode := cli()
+	// this output stream will be filled with text or JSON (if --json) output
+	output := plainOutput{device: os.Stdout}
+	// this output stream will be used for status messages
+	logOutput := plainOutput{device: os.Stderr}
+
+	exitcode, jsonOutput, err := cli(&output, &logOutput)
+	// TODO update design document for the following exit codes
+	//   1 → I/O error when reading a file like "file does not exist"
+	//   2 → I/O error when writing a file like "could not create file"
+	//   3 → I/O error “file exists already” but --overwrite is not specified
+	//   4 → I/O error if a file system cycle is detected (currently not checked/triggered)
+	//   5 → I/O error if the source file is not UTF-8 encoded (currently not checked/triggered)
+	//   6 → I/O error for generic/other cases like "serializing data to JSON failed"
+	//   7 → CLI error if some argument is missing or CLI is incorrect
+	//   8 → value error if some CLI argument has some invalid content
+	//   9 → value error if some report file contains invalid content
+	//   10 → command line was invalid, like argument type or missing required argument
+	//   11 → internal programming error - please report me! (assertion/invariant failed)
+
+	if err == nil {
+		os.Exit(exitcode)
+	}
+
+	if jsonOutput {
+		type jsonError struct {
+			Message  string `json:"error"`
+			ExitCode int    `json:"code"`
+		}
+
+		jsonData := jsonError{
+			Message:  err.Error(),
+			ExitCode: exitcode,
+		}
+		jsonRepr, err := json.Marshal(&jsonData)
+		if err != nil {
+			// ignore return value intentionally, as we cannot do anything about it
+			logOutput.Printfln(`error (exitcode=%d) was thrown: %s`, exitcode, err.Error())
+			logOutput.Printfln(`but I failed to create a response in JSON`)
+			output.Println(`{"error":"could not encode error message as JSON","exitcode":2}`)
+			exitcode = 6
+		} else {
+			output.Println(string(jsonRepr))
+		}
+	} else {
+		output.Printfln("Error: %s", err.Error())
+	}
+
 	os.Exit(exitcode)
 }

@@ -7,15 +7,15 @@ import (
 )
 
 func TestContains(t *testing.T) {
-	if contains([]string{"a", "bc"}, "d") {
+	if Contains([]string{"a", "bc"}, "d") {
 		t.Errorf("[a, bc] does not contain d")
 	}
 
-	if !contains([]string{"foo", "bar"}, "bar") {
+	if !Contains([]string{"foo", "bar"}, "bar") {
 		t.Errorf("[foo, bar] does contain bar")
 	}
 
-	if contains([]string{}, "") {
+	if Contains([]string{}, "") {
 		t.Errorf("[] does contain an empty string")
 	}
 }

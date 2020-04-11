@@ -44,7 +44,7 @@ func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 	// is a file
 	if err == nil && !stat.IsDir() {
 		baseName := stat.Name()
-		if contains(excludeFilename, baseName) {
+		if Contains(excludeFilename, baseName) {
 			return nil
 		}
 		for _, re := range excludeFilenameRegexp {
