@@ -104,13 +104,13 @@ func TestIsPermissionError(t *testing.T) {
 }
 
 func TestDetermineDepth(t *testing.T) {
-	data := map[string]uint32{
+	data := map[string]uint16{
 		`a/b`:     1,
 		`d/c/b/a`: 3,
 	}
 	for path, expected := range data {
-		if determineDepth(path) != expected {
-			t.Errorf(`expected depth of %v is %d, got %d`, path, expected, determineDepth(path))
+		if DetermineDepth(path) != expected {
+			t.Errorf(`expected depth of %v is %d, got %d`, path, expected, DetermineDepth(path))
 		}
 	}
 }

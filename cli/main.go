@@ -77,10 +77,6 @@ const usageTemplate = `{{define "FormatCommand"}}\
 }
 `
 
-const existsErrMsg = `file '%s' already exists and --overwrite was not specified`
-const configJSONErrMsg = `could not serialize config JSON: %s`
-const resultJSONErrMsg = `could not serialize result JSON: %s`
-
 func init() {
 	app = kingpin.New("dupfiles", "Determine duplicate files and folders.")
 	app.Version("1.0.0").Author("meisterluk")
@@ -93,6 +89,7 @@ func init() {
 		app.UsageTemplate(kingpin.CompactUsageTemplate)
 	}
 
+	// initialize subcommand variables
 	report = newCLIReportCommand(app)
 	find = newCLIFindCommand(app)
 	stats = newCLIStatsCommand(app)
