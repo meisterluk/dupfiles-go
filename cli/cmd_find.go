@@ -1,21 +1,16 @@
 package main
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
 
+	"github.com/meisterluk/dupfiles-go/internals"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
-
-// FindCommand defines the CLI command parameters
-type FindCommand struct {
-	Reports          []string `json:"reports"`
-	Overwrite        bool     `json:"overwrite"`
-	Output           string   `json:"output"`
-	ResultByExitcode bool     `json:"result-by-exitcode"`
-	ConfigOutput     bool     `json:"config"`
-	JSONOutput       bool     `json:"json"`
-	Help             bool     `json:"help"`
-}
 
 // cliFindCommand defined the CLI arguments as kingpin requires them
 type cliFindCommand struct {
@@ -70,4 +65,104 @@ func (c *cliFindCommand) Validate() (*FindCommand, error) {
 	}
 
 	return cmd, nil
+}
+
+// FindCommand defines the CLI command parameters
+type FindCommand struct {
+	Reports          []string `json:"reports"`
+	Overwrite        bool     `json:"overwrite"`
+	Output           string   `json:"output"`
+	ResultByExitcode bool     `json:"result-by-exitcode"`
+	ConfigOutput     bool     `json:"config"`
+	JSONOutput       bool     `json:"json"`
+	Help             bool     `json:"help"`
+}
+
+// Run executes the CLI command find on the given parameter set,
+// writes the result to Output w and errors/information messages to log.
+// It returns a triple (exit code, error)
+func (c *FindCommand) Run(w Output, log Output) (int, error) {
+	if c.ConfigOutput {
+		// config output is printed in JSON independent of c.JSONOutput
+		b, err := json.Marshal(c)
+		if err != nil {
+			return 6, fmt.Errorf(configJSONErrMsg, err)
+		}
+
+		w.Println(string(b))
+		return 0, nil
+	}
+
+	// consider c.Overwrite
+	_, err := os.Stat(c.Output)
+	if err == nil && !c.Overwrite {
+		return 3, fmt.Errorf(existsErrMsg, c.Output)
+	}
+
+	errChan := make(chan error)
+	dupEntries := make(chan internals.DuplicateSet)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		// error goroutine
+		defer wg.Done()
+		for err := range errChan {
+			log.Printfln(`error: %s`, err)
+		}
+		// TODO is this proper error handling? is the exit code properly propagated?
+		// TODO JSON output support
+	}()
+	go func() {
+		// duplicates goroutine
+		defer wg.Done()
+		type jsonOut struct {
+			LineNo     uint64 `json:"lineno"`
+			ReportFile string `json:"report"`
+			Path       string `json:"path"`
+		}
+
+		if c.JSONOutput {
+			for entry := range dupEntries {
+				// prepare data structure
+				entries := make([]jsonOut, 0, len(entry.Set))
+				for _, equiv := range entry.Set {
+					entries = append(entries, jsonOut{
+						LineNo:     equiv.Lineno,
+						ReportFile: equiv.ReportFile,
+						Path:       equiv.Path,
+					})
+				}
+
+				// marshal to JSON
+				jsonDump, err := json.Marshal(&entries)
+				if err != nil {
+					log.Printfln(`error marshalling result: %s`, err.Error())
+					// TODO? return 6, fmt.Errorf(resultJSONErrMsg, err)
+					continue
+				}
+
+				w.Println(string(jsonDump))
+			}
+
+		} else {
+			for entry := range dupEntries {
+				//log.Println("<duplicates>")
+				out := hex.EncodeToString(entry.Digest) + "\n"
+				for _, s := range entry.Set {
+					out += `  ` + s.ReportFile + " " + string(filepath.Separator) + " " + s.Path + "\n"
+				}
+				w.Println(out) // TODO or c.Output
+				// TODO json output support
+				//log.Println("</duplicates>")
+			}
+		}
+	}()
+
+	internals.FindDuplicates(c.Reports, dupEntries, errChan)
+	wg.Wait()
+
+	// TODO: print debug.GCStats ?
+	// TODO exitCode requires better feedback from errChan
+	return 0, nil
 }

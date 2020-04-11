@@ -5,6 +5,7 @@ import (
 	"io"
 )
 
+// Output defines a uniform interface to write to some stream
 type Output interface {
 	Print(text string) (int, error)
 	Println(text string) (int, error)
@@ -12,6 +13,7 @@ type Output interface {
 	Printfln(format string, args ...interface{}) (int, error)
 }
 
+// PlainOutput is a specific Output device which writes data in a raw format
 type plainOutput struct {
 	device io.Writer
 }

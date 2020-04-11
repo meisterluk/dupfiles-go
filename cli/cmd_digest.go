@@ -1,8 +1,13 @@
 package main
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/meisterluk/dupfiles-go/internals"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -141,4 +146,102 @@ func (c *cliDigestCommand) Validate() (*DigestCommand, error) {
 	}
 
 	return cmd, nil
+}
+
+// Run executes the CLI command diff on the given parameter set,
+// writes the result to Output w and errors/information messages to log.
+// It returns a triple (exit code, error)
+func (c *DigestCommand) Run(w Output, log Output) (int, error) {
+	if c.ConfigOutput {
+		// config output is printed in JSON independent of c.JSONOutput
+		b, err := json.Marshal(c)
+		if err != nil {
+			return 6, fmt.Errorf(configJSONErrMsg, err)
+		}
+		w.Println(string(b))
+		return 0, nil
+	}
+
+	fileinfo, err := os.Stat(c.BaseNode)
+	if err != nil {
+		return 6, err
+	}
+
+	if fileinfo.IsDir() {
+		// generate fsstats concurrently
+		stats := internals.GenerateStatistics(c.BaseNode, c.IgnorePermErrors, c.ExcludeBasename, c.ExcludeBasenameRegex, c.ExcludeTree)
+		w.Println(stats.String())
+
+		// traverse tree
+		output := make(chan internals.ReportTailLine)
+		errChan := make(chan error)
+		go internals.HashATree(c.BaseNode, c.DFS, c.IgnorePermErrors,
+			c.HashAlgorithm, c.ExcludeBasename, c.ExcludeBasenameRegex,
+			c.ExcludeTree, c.BasenameMode, c.Workers, output, errChan,
+		)
+
+		// read value from evaluation
+		digest := make([]byte, 128) // 128 bytes = 1024 bits digest output
+		for tailline := range output {
+			if tailline.Path == "." {
+				copy(digest, tailline.HashValue)
+			}
+		}
+
+		err, ok := <-errChan
+		if ok {
+			// TODO errChan does not propagate appropriate exit code
+			return 6, err
+		}
+
+		if c.JSONOutput {
+			type jsonResult struct {
+				Digest string `json:"digest"`
+			}
+
+			data := jsonResult{Digest: hex.EncodeToString(digest)}
+			jsonRepr, err := json.Marshal(&data)
+			if err != nil {
+				return 6, fmt.Errorf(resultJSONErrMsg, err)
+			}
+
+			w.Println(string(jsonRepr))
+		} else {
+			w.Println(hex.EncodeToString(digest))
+		}
+
+		return 0, nil
+
+	}
+
+	// NOTE in this case, we don't generate fsstats
+	algo, err := internals.HashAlgorithmFromString(c.HashAlgorithm)
+	if err != nil {
+		return 8, err
+	}
+	hash := algo.Algorithm()
+	digest := internals.HashNode(hash, c.BasenameMode, filepath.Dir(c.BaseNode), internals.FileData{
+		Path:   filepath.Base(c.BaseNode),
+		Type:   internals.DetermineNodeType(fileinfo),
+		Size:   uint64(fileinfo.Size()),
+		Digest: []byte{},
+	})
+
+	if c.JSONOutput {
+		type jsonResult struct {
+			Digest string `json:"digest"`
+		}
+
+		data := jsonResult{Digest: hex.EncodeToString(digest)}
+		jsonRepr, err := json.Marshal(&data)
+		if err != nil {
+			return 6, fmt.Errorf(resultJSONErrMsg, err)
+		}
+
+		w.Println(string(jsonRepr))
+	} else {
+		w.Println(hex.EncodeToString(digest))
+	}
+
+	return 0, nil
 }

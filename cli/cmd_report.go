@@ -1,33 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 
+	"github.com/meisterluk/dupfiles-go/internals"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
-
-// ReportCommand defines the CLI command parameters
-type ReportCommand struct {
-	BaseNode             string   `json:"basenode"`
-	BaseNodeName         string   `json:"basenode-name"`
-	Overwrite            bool     `json:"overwrite"`
-	Output               string   `json:"output"`
-	Continue             bool     `json:"continue"`
-	BFS                  bool     `json:"bfs"`
-	DFS                  bool     `json:"dfs"`
-	IgnorePermErrors     bool     `json:"ignore-perm-errors"`
-	HashAlgorithm        string   `json:"hash-algorithm"`
-	ExcludeBasename      []string `json:"exclude-basename"`
-	ExcludeBasenameRegex []string `json:"exclude-basename-regex"`
-	ExcludeTree          []string `json:"exclude-tree"`
-	BasenameMode         bool     `json:"basename-mode"`
-	EmptyMode            bool     `json:"empty-mode"`
-	Workers              int      `json:"workers"`
-	ConfigOutput         bool     `json:"config"`
-	JSONOutput           bool     `json:"json"`
-	Help                 bool     `json:"help"`
-}
 
 // cliReportCommand defines the CLI arguments as kingpin requires them
 type cliReportCommand struct {
@@ -165,4 +146,111 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 	}
 
 	return cmd, nil
+}
+
+// ReportCommand defines the CLI command parameters
+type ReportCommand struct {
+	BaseNode             string   `json:"basenode"`
+	BaseNodeName         string   `json:"basenode-name"`
+	Overwrite            bool     `json:"overwrite"`
+	Output               string   `json:"output"`
+	Continue             bool     `json:"continue"`
+	BFS                  bool     `json:"bfs"`
+	DFS                  bool     `json:"dfs"`
+	IgnorePermErrors     bool     `json:"ignore-perm-errors"`
+	HashAlgorithm        string   `json:"hash-algorithm"`
+	ExcludeBasename      []string `json:"exclude-basename"`
+	ExcludeBasenameRegex []string `json:"exclude-basename-regex"`
+	ExcludeTree          []string `json:"exclude-tree"`
+	BasenameMode         bool     `json:"basename-mode"`
+	EmptyMode            bool     `json:"empty-mode"`
+	Workers              int      `json:"workers"`
+	ConfigOutput         bool     `json:"config"`
+	JSONOutput           bool     `json:"json"`
+	Help                 bool     `json:"help"`
+}
+
+// Run executes the CLI command report on the given parameter set,
+// writes the result to Output w and errors/information messages to log.
+// It returns a triple (exit code, error)
+func (c *ReportCommand) Run(w Output, log Output) (int, error) {
+	// config output
+	if c.ConfigOutput {
+		b, err := json.Marshal(c)
+		if err != nil {
+			return 6, fmt.Errorf(configJSONErrMsg, err)
+		}
+
+		w.Println(string(b))
+		return 0, nil
+	}
+
+	// TODO: implement continue option
+
+	// consider c.Overwrite
+	_, err := os.Stat(c.Output)
+	if err == nil && !c.Overwrite {
+		return 3, fmt.Errorf(existsErrMsg, c.Output)
+	}
+
+	// create report
+	rep, err := internals.NewReportWriter(c.Output)
+	if err != nil {
+		return 2, fmt.Errorf(`error writing file '%s': %s`, c.Output, err)
+	}
+	// NOTE since we create a file descriptor for the output file here already,
+	//      we need to exclude it from the walk finding all paths.
+	//      We could move file descriptor creation to a later point, but I want
+	//      to catch FS writing issues early.
+	c.ExcludeTree = append(c.ExcludeTree, c.Output)
+
+	fullPath, err := filepath.Abs(c.BaseNode)
+	if err != nil {
+		return 6, err
+	}
+	err = rep.HeadLine(c.HashAlgorithm, !c.EmptyMode, c.BaseNodeName, fullPath)
+	if err != nil {
+		return 6, err
+	}
+
+	// walk and write tail lines
+	entries := make(chan internals.ReportTailLine)
+	errChan := make(chan error)
+	go internals.HashATree(
+		c.BaseNode, c.DFS, c.IgnorePermErrors, c.HashAlgorithm,
+		c.ExcludeBasename, c.ExcludeBasenameRegex, c.ExcludeTree,
+		c.BasenameMode, c.Workers, entries, errChan,
+	)
+
+	for entry := range entries {
+		err = rep.TailLine(entry.HashValue, entry.NodeType, entry.FileSize, entry.Path)
+		if err != nil {
+			return 2, err
+		}
+	}
+
+	err, ok := <-errChan
+	if ok {
+		// TODO proper exit code required
+		return 6, err
+	}
+
+	msg := fmt.Sprintf(`Done. File "%s" written`, c.Output)
+	if c.JSONOutput {
+		type output struct {
+			Message string `json:"message"`
+		}
+
+		data := output{Message: msg}
+		jsonRepr, err := json.Marshal(&data)
+		if err != nil {
+			return 6, fmt.Errorf(resultJSONErrMsg, err)
+		}
+
+		w.Println(string(jsonRepr))
+	} else {
+		w.Println(msg)
+	}
+
+	return 0, nil
 }
