@@ -218,8 +218,22 @@ func cli() int {
 			return handleError(err.Error(), 2, reportSettings.JSONOutput)
 		}
 
-		// TODO: write "… written."
-		// TODO: jsonOutput
+		msg := fmt.Sprintf(`Done. File "%s" written`, reportSettings.Output)
+		if reportSettings.JSONOutput {
+			type output struct {
+				Message string `json:"message"`
+			}
+
+			data := output{Message: msg}
+			jsonRepr, err := json.Marshal(&data)
+			if err != nil {
+				return handleError(err.Error(), 2, reportSettings.JSONOutput)
+			}
+
+			os.Stdout.Write(jsonRepr)
+		} else {
+			os.Stdout.Write([]byte(msg + "\n"))
+		}
 
 		return 0
 
