@@ -87,12 +87,12 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 				return tail, fmt.Errorf(`Could not parse head line`)
 			}
 
-			versionNumber, err := parseVersionNumber(string(groups[1]))
+			versionNumber, err := ParseVersionNumber(string(groups[1]))
 			if err != nil {
 				return tail, err
 			}
 
-			timestamp, err := parseTimestamp(string(groups[3]))
+			timestamp, err := ParseTimestamp(string(groups[3]))
 			if err != nil {
 				return tail, err
 			}
@@ -160,7 +160,7 @@ func (r *Report) Close() {
 	}
 }
 
-func parseVersionNumber(version string) ([3]uint16, error) {
+func ParseVersionNumber(version string) ([3]uint16, error) {
 	parts := strings.SplitN(version, ".", 3)
 	var numbers [3]uint16
 	for i, part := range parts {
@@ -176,6 +176,6 @@ func parseVersionNumber(version string) ([3]uint16, error) {
 	return numbers, nil
 }
 
-func parseTimestamp(timestamp string) (time.Time, error) {
+func ParseTimestamp(timestamp string) (time.Time, error) {
 	return time.Parse("2006-01-02T15:04:05", timestamp)
 }

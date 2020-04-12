@@ -10,13 +10,13 @@ import (
 )
 
 var app *kingpin.Application
-var report *cliReportCommand
-var find *cliFindCommand
-var stats *cliStatsCommand
-var digest *cliDigestCommand
-var diff *cliDiffCommand
-var hashAlgos *cliHashAlgosCommand
-var version *cliVersionCommand
+var report *CLIReportCommand
+var find *CLIFindCommand
+var stats *CLIStatsCommand
+var digest *CLIDigestCommand
+var diff *CLIDiffCommand
+var hashAlgos *CLIHashAlgosCommand
+var version *CLIVersionCommand
 
 const usageTemplate = `{{define "FormatCommand"}}\
 {{if .FlagSummary}} {{.FlagSummary}}{{end}}\
@@ -90,13 +90,13 @@ func init() {
 	}
 
 	// initialize subcommand variables
-	report = newCLIReportCommand(app)
-	find = newCLIFindCommand(app)
-	stats = newCLIStatsCommand(app)
-	digest = newCLIDigestCommand(app)
-	diff = newCLIDiffCommand(app)
-	hashAlgos = newCLIHashAlgosCommand(app)
-	version = newCLIVersionCommand(app)
+	report = NewCLIReportCommand(app)
+	find = NewCLIFindCommand(app)
+	stats = NewCLIStatsCommand(app)
+	digest = NewCLIDigestCommand(app)
+	diff = NewCLIDiffCommand(app)
+	hashAlgos = NewCLIHashAlgosCommand(app)
+	version = NewCLIVersionCommand(app)
 }
 
 // RunCLI executes the command line given in args.
@@ -204,9 +204,9 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 
 func main() {
 	// this output stream will be filled with text or JSON (if --json) output
-	output := plainOutput{device: os.Stdout}
+	output := PlainOutput{device: os.Stdout}
 	// this output stream will be used for status messages
-	logOutput := plainOutput{device: os.Stderr}
+	logOutput := PlainOutput{device: os.Stderr}
 
 	exitcode, jsonOutput, err := RunCLI(os.Args[1:], &output, &logOutput)
 	// TODO update design document for the following exit codes

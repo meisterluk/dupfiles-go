@@ -35,7 +35,7 @@ func (r *Report) HeadLine(hashAlgorithm string, basenameMode bool, nodeName, bas
 	_, err := fmt.Fprintf(r.File, "# 1.0.0 %s %s %s %s %s\n",
 		time.Now().UTC().Format("2006-01-02T15:04:05"),
 		hashAlgorithm,
-		mode, nodeName, byteEncode(basePath))
+		mode, nodeName, ByteEncode(basePath))
 	return err
 }
 
@@ -43,6 +43,6 @@ func (r *Report) HeadLine(hashAlgorithm string, basenameMode bool, nodeName, bas
 func (r *Report) TailLine(digest []byte, nodeType byte, fileSize uint64, path string) error {
 	_, err := fmt.Fprintf(r.File, "%s %c %d %s\n",
 		hex.EncodeToString(digest),
-		nodeType, fileSize, byteEncode(path))
+		nodeType, fileSize, ByteEncode(path))
 	return err
 }

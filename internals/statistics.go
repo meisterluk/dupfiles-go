@@ -29,7 +29,7 @@ func (s *Statistics) String() string {
 	if s.CountFiles == 1 {
 		f = "file"
 	}
-	return fmt.Sprintf(`stats: %d %s %d %s %s maxsize %d maxdepth`, s.CountFolders, d, s.CountFiles, f, humanReadableBytes(s.MaxSize), s.MaxDepth)
+	return fmt.Sprintf(`stats: %d %s %d %s %s maxsize %d maxdepth`, s.CountFolders, d, s.CountFiles, f, HumanReadableBytes(s.MaxSize), s.MaxDepth)
 }
 
 func (s *Statistics) Error() string {
@@ -54,7 +54,7 @@ func GenerateStatistics(baseNode string, ignorePermErrors bool, excludeBasename,
 	stats.ErrorMessage = filepath.Walk(baseNode, func(path string, info os.FileInfo, err error) error {
 		// if error occured, handle it
 		if err != nil {
-			if isPermissionError(err) && ignorePermErrors {
+			if IsPermissionError(err) && ignorePermErrors {
 				if info.IsDir() {
 					return filepath.SkipDir
 				}

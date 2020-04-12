@@ -21,8 +21,8 @@ func Contains(set []string, item string) bool {
 	return false
 }
 
-// eqStringSlices determines whether string slices as and bs have the same content
-func eqStringSlices(as, bs []string) bool {
+// EqStringSlices determines whether string slices as and bs have the same content
+func EqStringSlices(as, bs []string) bool {
 	if len(as) != len(bs) {
 		return false
 	}
@@ -34,8 +34,8 @@ func eqStringSlices(as, bs []string) bool {
 	return true
 }
 
-// eqByteSlices determines whether bytes slices as and bs have the same content
-func eqByteSlices(as, bs []byte) bool {
+// EqByteSlices determines whether bytes slices as and bs have the same content
+func EqByteSlices(as, bs []byte) bool {
 	if len(as) != len(bs) {
 		return false
 	}
@@ -47,8 +47,8 @@ func eqByteSlices(as, bs []byte) bool {
 	return true
 }
 
-// byteEncode implements the byte encoding defined in the design document
-func byteEncode(basename string) string {
+// ByteEncode implements the byte encoding defined in the design document
+func ByteEncode(basename string) string {
 	if basename == "" {
 		// "" is the internal representation of the root
 		// it's external representation is "."
@@ -79,10 +79,10 @@ func byteEncode(basename string) string {
 	return string(encoded)
 }
 
-// byteDecode implements the inverse operation for "byteEncode(basename string) string".
-func byteDecode(basename string) (string, error) {
+// ByteDecode implements the inverse operation for "ByteEncode(basename string) string".
+func ByteDecode(basename string) (string, error) {
 	if !utf8.ValidString(basename) {
-		return "", fmt.Errorf(`byteDecode requires a valid utf-8 string as argument, got %q`, basename)
+		return "", fmt.Errorf(`ByteDecode requires a valid utf-8 string as argument, got %q`, basename)
 	}
 	var err error
 
@@ -122,8 +122,8 @@ func byteDecode(basename string) (string, error) {
 	return basename, nil
 }
 
-// Given count bytes, represent the amount in a human-readable way
-func humanReadableBytes(count uint64) string {
+// HumanReadableBytes represents the amount of count bytes in a human-readable way
+func HumanReadableBytes(count uint64) string {
 	bytes := float64(count)
 	units := []string{"bytes", "KiB", "MiB", "GiB", "TiB", "PiB"}
 	if count == 0 {
@@ -141,8 +141,8 @@ func humanReadableBytes(count uint64) string {
 	return fmt.Sprintf(`%.02f EiB`, bytes)
 }
 
-// isPermissionError determines whether the given error indicates a permission error
-func isPermissionError(err error) bool {
+// IsPermissionError determines whether the given error indicates a permission error
+func IsPermissionError(err error) bool {
 	return errors.Is(err, os.ErrPermission)
 }
 
@@ -155,9 +155,9 @@ func DetermineDepth(path string) uint16 {
 	return uint16(strings.Count(p, string(filepath.Separator)))
 }
 
-// dir returns the directory component of a given filepath (similar to filepath.Dir).
+// Dir returns the directory component of a given filepath (similar to filepath.Dir).
 // NOTE internally, the root node is represented as ""; not "." or "/"
-func dir(path string) string {
+func Dir(path string) string {
 	path = filepath.Dir(path)
 	if path == "." {
 		path = ""
@@ -165,8 +165,8 @@ func dir(path string) string {
 	return path
 }
 
-// pathSplit takes a filesystem path and splits it into individual components
-func pathSplit(path string) []string {
+// PathSplit takes a filesystem path and splits it into individual components
+func PathSplit(path string) []string {
 	if path == "." {
 		return []string{""}
 	}
@@ -215,9 +215,9 @@ func DetermineNodeType(stat os.FileInfo) byte {
 	return 'X'
 }
 
-// xorByteSlices takes byte slices x and y and updates x with x xor y.
+// XORByteSlices takes byte slices x and y and updates x with x xor y.
 // NOTE assumes x and y have same length.
-func xorByteSlices(x, y []byte) {
+func XORByteSlices(x, y []byte) {
 	for i := 0; i < len(x); i++ {
 		x[i] = x[i] ^ y[i]
 	}

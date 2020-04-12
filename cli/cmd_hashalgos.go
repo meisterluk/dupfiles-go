@@ -8,8 +8,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// cliHashAlgosCommand defines the CLI arguments as kingpin requires them
-type cliHashAlgosCommand struct {
+// CLIHashAlgosCommand defines the CLI arguments as kingpin requires them
+type CLIHashAlgosCommand struct {
 	cmd          *kingpin.CmdClause
 	CheckSupport *string
 	ConfigOutput *bool
@@ -17,8 +17,8 @@ type cliHashAlgosCommand struct {
 	Help         *bool
 }
 
-func newCLIHashAlgosCommand(app *kingpin.Application) *cliHashAlgosCommand {
-	c := new(cliHashAlgosCommand)
+func NewCLIHashAlgosCommand(app *kingpin.Application) *CLIHashAlgosCommand {
+	c := new(CLIHashAlgosCommand)
 	c.cmd = app.Command("hashalgos", "List supported hash algorithms.")
 
 	c.CheckSupport = c.cmd.Flag("check-support", "exit code 1 indicates that the given hashalgo is unsupported").String()
@@ -28,7 +28,7 @@ func newCLIHashAlgosCommand(app *kingpin.Application) *cliHashAlgosCommand {
 	return c
 }
 
-func (c *cliHashAlgosCommand) Validate() (*HashAlgosCommand, error) {
+func (c *CLIHashAlgosCommand) Validate() (*HashAlgosCommand, error) {
 	// migrate CLIHashAlgosCommand to HashAlgosCommand
 	cmd := new(HashAlgosCommand)
 	cmd.CheckSupport = *c.CheckSupport
@@ -37,7 +37,7 @@ func (c *cliHashAlgosCommand) Validate() (*HashAlgosCommand, error) {
 	cmd.Help = false
 
 	// handle environment variables
-	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	envJSON, errJSON := EnvToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON
 	}

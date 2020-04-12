@@ -21,25 +21,25 @@ func TestContains(t *testing.T) {
 }
 
 func TestEqStringSlices(t *testing.T) {
-	if eqStringSlices([]string{"foo", "bar"}, []string{"foo"}) {
+	if EqStringSlices([]string{"foo", "bar"}, []string{"foo"}) {
 		t.Errorf("[foo, bar] does equal [foo]")
 	}
 
-	if eqStringSlices([]string{"", "abc"}, []string{"abc", ""}) {
+	if EqStringSlices([]string{"", "abc"}, []string{"abc", ""}) {
 		t.Errorf("['', abc] does equal [abc, '']")
 	}
 
-	if !eqStringSlices([]string{"foo", "bar"}, []string{"foo", "bar"}) {
+	if !EqStringSlices([]string{"foo", "bar"}, []string{"foo", "bar"}) {
 		t.Errorf("[foo, bar] does equal [foo, bar]")
 	}
 }
 
 func TestEqByteSlices(t *testing.T) {
-	if !eqByteSlices([]byte("bar"), []byte("bar")) {
+	if !EqByteSlices([]byte("bar"), []byte("bar")) {
 		t.Errorf("bar equals bar")
 	}
 
-	if eqByteSlices([]byte{'\x00'}, []byte("foo")) {
+	if EqByteSlices([]byte{'\x00'}, []byte("foo")) {
 		t.Errorf(`\x00 does not equal foo`)
 	}
 }
@@ -53,9 +53,9 @@ func TestByteEncode(t *testing.T) {
 	}
 	for _, test := range tests {
 		input, expected := test[0], test[1]
-		actual := byteEncode(input)
+		actual := ByteEncode(input)
 		if actual != expected {
-			t.Errorf("Expected byteEncode(%q) = %q; got %q", input, expected, actual)
+			t.Errorf("Expected ByteEncode(%q) = %q; got %q", input, expected, actual)
 		}
 	}
 }
@@ -69,13 +69,13 @@ func TestByteDecode(t *testing.T) {
 	}
 	for _, test := range tests {
 		expected, input := test[0], test[1]
-		actual, err := byteDecode(input)
+		actual, err := ByteDecode(input)
 		if err != nil {
-			t.Errorf(`byteDecode showed error: %s`, err.Error())
+			t.Errorf(`ByteDecode showed error: %s`, err.Error())
 			continue
 		}
 		if actual != expected {
-			t.Errorf("Expected byteDecode(%q) = %q; got %q", input, expected, actual)
+			t.Errorf("Expected ByteDecode(%q) = %q; got %q", input, expected, actual)
 		}
 	}
 }
@@ -87,18 +87,18 @@ func TestHumanReadableBytes(t *testing.T) {
 		2097152: `2.00 MiB`,
 	}
 	for count, repr := range data {
-		if humanReadableBytes(count) != repr {
-			t.Errorf(`Expected humanReadableBytes(%d) == %q, got %q`, count, repr, humanReadableBytes(count))
+		if HumanReadableBytes(count) != repr {
+			t.Errorf(`Expected HumanReadableBytes(%d) == %q, got %q`, count, repr, HumanReadableBytes(count))
 		}
 	}
 }
 
 func TestIsPermissionError(t *testing.T) {
-	if isPermissionError(io.EOF) {
+	if IsPermissionError(io.EOF) {
 		t.Errorf(`io.EOF is not a permission error`)
 	}
 
-	if isPermissionError(fmt.Errorf(`hi`)) {
+	if IsPermissionError(fmt.Errorf(`hi`)) {
 		t.Errorf(`custom error is not a permission error`)
 	}
 }
@@ -115,7 +115,7 @@ func TestDetermineDepth(t *testing.T) {
 	}
 }
 
-func TestXorByteSlices(t *testing.T) {
+func TestXORByteSlices(t *testing.T) {
 	tests := [][3][]byte{
 		[3][]byte{[]byte{}, []byte{}, []byte{}},
 		[3][]byte{[]byte{1}, []byte{2}, []byte{3}},
@@ -125,7 +125,7 @@ func TestXorByteSlices(t *testing.T) {
 
 	for _, test := range tests {
 		expected := test[2]
-		xorByteSlices(test[0], test[1])
+		XORByteSlices(test[0], test[1])
 		actual := test[0]
 		if len(expected) != len(actual) {
 			t.Fatalf(`expected bytes %v, got %v`, expected, actual)

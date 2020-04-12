@@ -182,16 +182,16 @@ const MeanBytesPerLine = 119
 // MaxCountInDataStructure ⇒ "there are MaxCountInDataStructure or more matches"
 const MaxCountInDataStructure = 127
 
-type hierarchyNode struct {
+type HierarchyNode struct {
 	basename        string
 	digestFirstByte byte
 	digestIndex     uint // NOTE first bit is used to store whether "digestIndex" and "digestFirstByte" have been initialized
-	parent          *hierarchyNode
-	children        []hierarchyNode
+	parent          *HierarchyNode
+	children        []HierarchyNode
 }
 
-type match struct {
-	node       *hierarchyNode
+type Match struct {
+	node       *HierarchyNode
 	reportFile string
 }
 
@@ -321,7 +321,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	memoryRequired := estimatedNumEntries * (digestSize + 1)
 	log.Printf("Step 2 of 4 started: reading all digests into memory\n")
 	// TODO it is not difficult to get the actual number of entries, right? ⇒ accurate data/estimate
-	log.Printf("total file size %d bytes ⇒ estimated %s of main memory required\n", digestSize, humanReadableBytes(memoryRequired))
+	log.Printf("total file size %d bytes ⇒ estimated %s of main memory required\n", digestSize, HumanReadableBytes(memoryRequired))
 
 	data := NewDigestData(digestSizeI, int(estimatedNumEntries>>8))
 	entriesFinished := uint64(0)
@@ -385,13 +385,13 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// Step 3: Build a hierarchical [filesystem] tree per reportFile limited to duplicates.
 	//         Nodes are references to data.
 	log.Printf("Step 3 of 4 started: build filesystem tree of duplicates\n")
-	trees := make([]*hierarchyNode, 0, len(reportFiles))
+	trees := make([]*HierarchyNode, 0, len(reportFiles))
 
 	for _, reportFile := range reportFiles {
 		log.Printf("reading '%s' …\n", reportFile)
-		rootNode := new(hierarchyNode)
+		rootNode := new(HierarchyNode)
 		rootNode.parent = rootNode
-		rootNode.children = make([]hierarchyNode, 0, 8)
+		rootNode.children = make([]HierarchyNode, 0, 8)
 
 		rep, err := NewReportReader(reportFile)
 		if err != nil {
@@ -413,7 +413,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			index, _ := data.IndexOf(tail.HashValue)
 
 			// is duplicate ⇒ add to tree
-			components := pathSplit(tail.Path)
+			components := PathSplit(tail.Path)
 			currentNode := rootNode
 			for _, component := range components {
 				// traverse into correct component
@@ -426,10 +426,10 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 					}
 				}
 				if !found {
-					currentNode.children = append(currentNode.children, hierarchyNode{
+					currentNode.children = append(currentNode.children, HierarchyNode{
 						basename: component,
 						parent:   currentNode,
-						children: make([]hierarchyNode, 0, 8),
+						children: make([]HierarchyNode, 0, 8),
 					})
 					currentNode = &currentNode.children[len(currentNode.children)-1]
 				}
@@ -446,8 +446,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// at this point, "trees" must only be accessed read-only
 
 	// verify that all nodes have been initialized (i.e. have digest in file)
-	var verifyTree func(*hierarchyNode, *DigestData, string)
-	verifyTree = func(node *hierarchyNode, data *DigestData, reportFile string) {
+	var verifyTree func(*HierarchyNode, *DigestData, string)
+	verifyTree = func(node *HierarchyNode, data *DigestData, reportFile string) {
 		if node.digestIndex&1 == 0 {
 			// determine full path
 			fullPath := ""
@@ -475,8 +475,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 	// TODO just debug information
 	data.Dump()
-	var dumpTree func(*hierarchyNode, *DigestData, int)
-	dumpTree = func(node *hierarchyNode, data *DigestData, indent int) {
+	var dumpTree func(*HierarchyNode, *DigestData, int)
+	dumpTree = func(node *HierarchyNode, data *DigestData, indent int) {
 		identation := strings.Repeat("  ", indent)
 		basename := node.basename
 		if node.basename == "" && indent == 0 {
@@ -505,7 +505,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// we visit *every node* in DFS
 	var wg sync.WaitGroup
 	for t, tree := range trees {
-		for refNode := range traverseTree(tree, data, digestSizeI) {
+		for refNode := range TraverseTree(tree, data, digestSizeI) {
 			// find all nodes with matching digest
 			var stopSearch int32
 			expectedDuplicates := data.Duplicates(refNode.digestFirstByte, int(refNode.digestIndex>>1))
@@ -518,11 +518,11 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			data.Disable(refNode.digestFirstByte, int(refNode.digestIndex>>1))
 
 			// collect matches
-			matches := make([]match, 1, ExpectedMatchesPerNode)
+			matches := make([]Match, 1, ExpectedMatchesPerNode)
 			matches[0].node = refNode
 			matches[0].reportFile = reportFiles[t]
 
-			for matchData := range matchTree(trees, reportFiles, refNode, data, digestSizeI, &stopSearch) {
+			for matchData := range MatchTree(trees, reportFiles, refNode, data, digestSizeI, &stopSearch) {
 				if refNode == matchData.node {
 					continue
 				}
@@ -556,9 +556,9 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 			// bubble up matches and publish equivalence sets
 			wg.Add(1)
-			go func(refNode *hierarchyNode) {
+			go func(refNode *HierarchyNode) {
 				defer wg.Done()
-				bubbleAndPublish(matches, data, outChan, digestSizeI)
+				BubbleAndPublish(matches, data, outChan, digestSizeI)
 				// TODO mark digest of refNode as disabled such that these nodes are not traversed twice
 			}(refNode)
 
@@ -586,13 +586,13 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// TODO print meaningful statistics
 }
 
-// traverseTree traverses the given tree defined by the root node
+// TraverseTree traverses the given tree defined by the root node
 // and emit all nodes starting with the leaves.
-func traverseTree(rootNode *hierarchyNode, data *DigestData, digestSizeI int) <-chan *hierarchyNode {
-	outChan := make(chan *hierarchyNode)
+func TraverseTree(rootNode *HierarchyNode, data *DigestData, digestSizeI int) <-chan *HierarchyNode {
+	outChan := make(chan *HierarchyNode)
 
-	var recur func(*hierarchyNode)
-	recur = func(node *hierarchyNode) {
+	var recur func(*HierarchyNode)
+	recur = func(node *HierarchyNode) {
 		for i := range node.children {
 			child := &node.children[i]
 
@@ -620,14 +620,14 @@ func traverseTree(rootNode *hierarchyNode, data *DigestData, digestSizeI int) <-
 	return outChan
 }
 
-// matchTree traverses all trees and emits any equivalent nodes of refNode.
+// MatchTree traverses all trees and emits any equivalent nodes of refNode.
 // NOTE this function traverses all trees simultaneously.
 // NOTE this function also returns refNode.
-func matchTree(trees []*hierarchyNode, reportFiles []string, refNode *hierarchyNode, data *DigestData, digestSize int, stop *int32) <-chan match {
+func MatchTree(trees []*HierarchyNode, reportFiles []string, refNode *HierarchyNode, data *DigestData, digestSize int, stop *int32) <-chan Match {
 	var wg sync.WaitGroup
-	outChan := make(chan match)
+	outChan := make(chan Match)
 
-	nodesEqual := func(a, b *hierarchyNode) bool {
+	nodesEqual := func(a, b *HierarchyNode) bool {
 		if a.digestFirstByte == b.digestFirstByte {
 			rDigestSuffix := data.DigestSuffix(b.digestFirstByte, int(b.digestIndex>>1))
 			cDigestSuffix := data.DigestSuffix(a.digestFirstByte, int(a.digestIndex>>1))
@@ -635,24 +635,24 @@ func matchTree(trees []*hierarchyNode, reportFiles []string, refNode *hierarchyN
 			if len(rDigestSuffix) != len(cDigestSuffix) {
 				panic(fmt.Sprintf("internal error: len(rDigestSuffix) != len(cDigestSuffix); %d != %d", len(rDigestSuffix), len(cDigestSuffix)))
 			}
-			if eqByteSlices(rDigestSuffix, cDigestSuffix) {
+			if EqByteSlices(rDigestSuffix, cDigestSuffix) {
 				return true
 			}
 		}
 		return false
 	}
 
-	go func(trees []*hierarchyNode, refNode *hierarchyNode, data *DigestData, digestSize int, stop *int32, outChan chan<- match) {
+	go func(trees []*HierarchyNode, refNode *HierarchyNode, data *DigestData, digestSize int, stop *int32, outChan chan<- Match) {
 		defer close(outChan)
 
-		var recur func(*hierarchyNode, string)
-		recur = func(node *hierarchyNode, reportFile string) {
+		var recur func(*HierarchyNode, string)
+		recur = func(node *HierarchyNode, reportFile string) {
 			for i := range node.children {
 				child := &node.children[i]
 
 				// compare digests
 				if nodesEqual(child, refNode) {
-					outChan <- match{node: child, reportFile: reportFile}
+					outChan <- Match{node: child, reportFile: reportFile}
 				}
 
 				// stop if maximum number of matches was reached
@@ -668,11 +668,11 @@ func matchTree(trees []*hierarchyNode, reportFiles []string, refNode *hierarchyN
 
 		for i := range trees {
 			if nodesEqual(refNode, trees[i]) {
-				outChan <- match{node: trees[i], reportFile: reportFiles[i]}
+				outChan <- Match{node: trees[i], reportFile: reportFiles[i]}
 			}
 
 			wg.Add(1)
-			go func(tree *hierarchyNode, reportFile string) {
+			go func(tree *HierarchyNode, reportFile string) {
 				recur(tree, reportFile)
 				wg.Done()
 			}(trees[i], reportFiles[i])
@@ -684,16 +684,16 @@ func matchTree(trees []*hierarchyNode, reportFiles []string, refNode *hierarchyN
 	return outChan
 }
 
-// bubbleAndPublish applies the bubbling algorithm and then publishes the equivalent nodes.
+// BubbleAndPublish applies the bubbling algorithm and then publishes the equivalent nodes.
 // Bubbling is the act of exchanging matches with their parents if at least two matches
 // share the same parent. They are collected in clusters and the algorithm is called
 // recursively. A cluster is a set of nodes sharing the same digest.
-func bubbleAndPublish(matches []match, data *DigestData, outChan chan<- DuplicateSet, digestSize int) {
+func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- DuplicateSet, digestSize int) {
 	if len(matches) < 2 {
 		panic("internal error: there must be at least 2 matches")
 	}
 
-	parentClusters := make([][]match, 0, 4)
+	parentClusters := make([][]Match, 0, 4)
 	allAreSingletons := true
 	for _, matchData := range matches {
 		parent := (*matchData.node).parent
@@ -701,7 +701,7 @@ func bubbleAndPublish(matches []match, data *DigestData, outChan chan<- Duplicat
 		added := false
 		for _, cluster := range parentClusters {
 			if cluster[0].node.digestFirstByte == parent.digestFirstByte && cluster[0].node.digestIndex&1 == 1 && cluster[0].node.digestIndex == parent.digestIndex {
-				cluster = append(cluster, match{reportFile: matchData.reportFile, node: parent})
+				cluster = append(cluster, Match{reportFile: matchData.reportFile, node: parent})
 				added = true
 				allAreSingletons = false
 				break
@@ -709,8 +709,8 @@ func bubbleAndPublish(matches []match, data *DigestData, outChan chan<- Duplicat
 		}
 
 		if !added {
-			parentClusters = append(parentClusters, make([]match, 0, len(matches)))
-			parentClusters[len(parentClusters)-1] = append(parentClusters[len(parentClusters)-1], match{
+			parentClusters = append(parentClusters, make([]Match, 0, len(matches)))
+			parentClusters[len(parentClusters)-1] = append(parentClusters[len(parentClusters)-1], Match{
 				reportFile: matchData.reportFile,
 				node:       parent,
 			})
@@ -719,20 +719,20 @@ func bubbleAndPublish(matches []match, data *DigestData, outChan chan<- Duplicat
 
 	// none of the parent digests match ⇒ emit all && abort bubbling
 	if allAreSingletons {
-		publishDuplicates(matches, data, outChan, digestSize)
+		PublishDuplicates(matches, data, outChan, digestSize)
 		return
 	}
 
 	// some of the parent digests match ⇒ emit all && recurse with 2-or-more clusters
-	publishDuplicates(matches, data, outChan, digestSize)
+	PublishDuplicates(matches, data, outChan, digestSize)
 	for i := 0; i < len(parentClusters); i++ {
 		if len(parentClusters[i]) >= 2 {
-			bubbleAndPublish(parentClusters[i], data, outChan, digestSize)
+			BubbleAndPublish(parentClusters[i], data, outChan, digestSize)
 		}
 	}
 }
 
-func publishDuplicates(matches []match, data *DigestData, outChan chan<- DuplicateSet, digestSize int) {
+func PublishDuplicates(matches []Match, data *DigestData, outChan chan<- DuplicateSet, digestSize int) {
 	if len(matches) == 0 {
 		panic("internal error: matches is empty")
 	}

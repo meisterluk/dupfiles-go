@@ -10,8 +10,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// cliStatsCommand defines the CLI arguments as kingpin requires them
-type cliStatsCommand struct {
+// CLIStatsCommand defines the CLI arguments as kingpin requires them
+type CLIStatsCommand struct {
 	cmd          *kingpin.CmdClause
 	Report       *string
 	Long         *bool
@@ -20,8 +20,8 @@ type cliStatsCommand struct {
 	Help         *bool
 }
 
-func newCLIStatsCommand(app *kingpin.Application) *cliStatsCommand {
-	c := new(cliStatsCommand)
+func NewCLIStatsCommand(app *kingpin.Application) *CLIStatsCommand {
+	c := new(CLIStatsCommand)
 	c.cmd = app.Command("stats", "Prints some statistics about filesystem nodes based on a report.")
 
 	c.Report = c.cmd.Arg("report", "report to consider").Required().String()
@@ -32,7 +32,7 @@ func newCLIStatsCommand(app *kingpin.Application) *cliStatsCommand {
 	return c
 }
 
-func (c *cliStatsCommand) Validate() (*StatsCommand, error) {
+func (c *CLIStatsCommand) Validate() (*StatsCommand, error) {
 	// validity checks (check conditions that are not covered by kingpin)
 	if *c.Report == "" {
 		return nil, fmt.Errorf("One report must be specified")
@@ -45,11 +45,11 @@ func (c *cliStatsCommand) Validate() (*StatsCommand, error) {
 	cmd.JSONOutput = *c.JSONOutput
 
 	// handle environment variables
-	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	envJSON, errJSON := EnvToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON
 	}
-	envLong, errLong := envToBool("DUPFILES_LONG")
+	envLong, errLong := EnvToBool("DUPFILES_LONG")
 	if errLong == nil {
 		cmd.Long = envLong
 	}

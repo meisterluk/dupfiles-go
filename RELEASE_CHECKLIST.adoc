@@ -14,6 +14,7 @@ Code quality
 
 • New bug fixes contained? Test cases needed.
 • All functions and structs have a proper documentation
+• All functions and structs have appropriate visibility (first letter is lowercase/uppercase)
 • Run “report” and “find” after “go build -race …” to catch trivial concurrency bugs
 
 Concurrency checks

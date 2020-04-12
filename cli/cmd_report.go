@@ -10,8 +10,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// cliReportCommand defines the CLI arguments as kingpin requires them
-type cliReportCommand struct {
+// CLIReportCommand defines the CLI arguments as kingpin requires them
+type CLIReportCommand struct {
 	cmd                  *kingpin.CmdClause
 	BaseNode             *string
 	BaseNodeName         *string
@@ -33,19 +33,19 @@ type cliReportCommand struct {
 	Help                 *bool
 }
 
-func newCLIReportCommand(app *kingpin.Application) *cliReportCommand {
-	c := new(cliReportCommand)
+func NewCLIReportCommand(app *kingpin.Application) *CLIReportCommand {
+	c := new(CLIReportCommand)
 	c.cmd = app.Command("report", "Generates a report file.")
 
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
 	c.BaseNodeName = c.cmd.Flag("basenode-name", "human-readable base node name in head line").Short('b').String()
 	c.Overwrite = c.cmd.Flag("overwrite", "if filepath already exists, overwrite it without asking").Bool()
-	c.Output = c.cmd.Flag("output", "target location for report").Default(envOr("DUPFILES_OUTPUT", "")).Short('o').String()
+	c.Output = c.cmd.Flag("output", "target location for report").Default(EnvOr("DUPFILES_OUTPUT", "")).Short('o').String()
 	c.Continue = c.cmd.Flag("continue", "assume that the output file is incomplete and we continue processing").Short('c').Bool()
 	c.DFS = c.cmd.Flag("dfs", "apply depth-first search for file system").Bool()
 	c.BFS = c.cmd.Flag("bfs", "apply breadth-first search for file system").Bool()
 	c.IgnorePermErrors = c.cmd.Flag("ignore-perm-errors", "ignore permission errors and continue traversal").Bool()
-	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(envOr("DUPFILES_HASH_ALGORITHM", "fnv-1a-128")).Short('a').String()
+	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", "fnv-1a-128")).Short('a').String()
 	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
 	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
 	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings() // TODO trim any trailing/leading separators
@@ -58,7 +58,7 @@ func newCLIReportCommand(app *kingpin.Application) *cliReportCommand {
 	return c
 }
 
-func (c *cliReportCommand) Validate() (*ReportCommand, error) {
+func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {
 		return nil, fmt.Errorf("basenode must not be empty")
@@ -97,35 +97,35 @@ func (c *cliReportCommand) Validate() (*ReportCommand, error) {
 	cmd.Help = false
 
 	// handle environment variables
-	envDFS, errDFS := envToBool("DUPFILES_DFS")
+	envDFS, errDFS := EnvToBool("DUPFILES_DFS")
 	if errDFS == nil {
 		cmd.DFS = envDFS
 		cmd.BFS = !envDFS
 	}
-	envEmpty, errEmpty := envToBool("DUPFILES_EMPTY_MODE")
+	envEmpty, errEmpty := EnvToBool("DUPFILES_EMPTY_MODE")
 	if errEmpty == nil {
 		cmd.EmptyMode = envEmpty
 		cmd.BasenameMode = !envEmpty
 	}
 	/// DUPFILES_HASH_ALGORITHM was already handled
-	envIPE, errIPE := envToBool("DUPFILES_IGNORE_PERM_ERRORS")
+	envIPE, errIPE := EnvToBool("DUPFILES_IGNORE_PERM_ERRORS")
 	if errIPE == nil {
 		cmd.IgnorePermErrors = envIPE
 	}
-	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	envJSON, errJSON := EnvToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON
 	}
 	/// DUPFILES_OUTPUT was already handled
-	envOverwrite, errOverwrite := envToBool("DUPFILES_OVERWRITE")
+	envOverwrite, errOverwrite := EnvToBool("DUPFILES_OVERWRITE")
 	if errOverwrite == nil {
 		cmd.Overwrite = envOverwrite
 	}
 	if cmd.Workers == 0 {
-		if w, ok := envToInt("DUPFILES_WORKERS"); ok {
+		if w, ok := EnvToInt("DUPFILES_WORKERS"); ok {
 			cmd.Workers = w
 		} else {
-			cmd.Workers = countCPUs()
+			cmd.Workers = CountCPUs()
 		}
 	}
 

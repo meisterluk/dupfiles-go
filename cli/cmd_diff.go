@@ -11,60 +11,60 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// targetPair contains the basenode and its associated report file.
+// TargetPair contains the basenode and its associated report file.
 // Pairs of these constitute the arguments you need to provide for subcommand diff.
-type targetPair struct {
+type TargetPair struct {
 	BaseNode string
 	Report   string
 }
 
-// targetPairs just implements the wrapper required by kingpin. See:
+// TargetPairs just implements the wrapper required by kingpin. See:
 // https://github.com/alecthomas/kingpin/blob/b6657d9477a694/README.md#consuming-all-remaining-arguments
-type targetPairs []targetPair
+type TargetPairs []TargetPair
 
-func (t *targetPairs) Set(value string) error {
+func (t *TargetPairs) Set(value string) error {
 	if value == "" {
 		return fmt.Errorf("'%s' is not a valid base node or report file", value)
 	}
 	// append to existing
-	if len(*t) == 0 || ([]targetPair)(*t)[len(*t)-1].Report != "" {
-		*t = append(*t, targetPair{BaseNode: value})
+	if len(*t) == 0 || ([]TargetPair)(*t)[len(*t)-1].Report != "" {
+		*t = append(*t, TargetPair{BaseNode: value})
 		return nil
 	}
 	// create new entry
-	([]targetPair)(*t)[len(*t)-1].Report = value
+	([]TargetPair)(*t)[len(*t)-1].Report = value
 	return nil
 }
 
-func (t *targetPairs) String() string {
-	out := "targetPairs{"
+func (t *TargetPairs) String() string {
+	out := "TargetPairs{"
 	for _, target := range *t {
 		out += fmt.Sprintf(`%s: %s, `, target.BaseNode, target.Report)
 	}
 	return out + "}"
 }
 
-func (t *targetPairs) IsCumulative() bool {
+func (t *TargetPairs) IsCumulative() bool {
 	return true
 }
 
-func parseTargets(s *kingpin.ArgClause) *[]targetPair {
-	target := new([]targetPair)
-	s.SetValue((*targetPairs)(target))
+func parseTargets(s *kingpin.ArgClause) *[]TargetPair {
+	target := new([]TargetPair)
+	s.SetValue((*TargetPairs)(target))
 	return target
 }
 
-// cliDiffCommand defines the CLI arguments as kingpin requires them
-type cliDiffCommand struct {
+// CLIDiffCommand defines the CLI arguments as kingpin requires them
+type CLIDiffCommand struct {
 	cmd          *kingpin.CmdClause
-	Targets      *[]targetPair
+	Targets      *[]TargetPair
 	ConfigOutput *bool
 	JSONOutput   *bool
 	Help         *bool
 }
 
-func newCLIDiffCommand(app *kingpin.Application) *cliDiffCommand {
-	c := new(cliDiffCommand)
+func NewCLIDiffCommand(app *kingpin.Application) *CLIDiffCommand {
+	c := new(CLIDiffCommand)
 	c.cmd = app.Command("diff", "Show difference between node children in two or more report files.")
 
 	c.Targets = parseTargets(c.cmd.Arg("targets", "two or more [{base node} {report}] pairs to consider"))
@@ -74,10 +74,10 @@ func newCLIDiffCommand(app *kingpin.Application) *cliDiffCommand {
 	return c
 }
 
-func (c *cliDiffCommand) Validate() (*DiffCommand, error) {
-	// migrate cliDiffCommand to DiffCommand
+func (c *CLIDiffCommand) Validate() (*DiffCommand, error) {
+	// migrate CLIDiffCommand to DiffCommand
 	cmd := new(DiffCommand)
-	cmd.Targets = make([]targetPair, 0, 8)
+	cmd.Targets = make([]TargetPair, 0, 8)
 	cmd.ConfigOutput = *c.ConfigOutput
 	cmd.JSONOutput = *c.JSONOutput
 
@@ -96,7 +96,7 @@ func (c *cliDiffCommand) Validate() (*DiffCommand, error) {
 	}
 
 	// handle environment variables
-	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	envJSON, errJSON := EnvToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON
 	}
@@ -106,7 +106,7 @@ func (c *cliDiffCommand) Validate() (*DiffCommand, error) {
 
 // DiffCommand defines the CLI command parameters
 type DiffCommand struct {
-	Targets      []targetPair
+	Targets      []TargetPair
 	ConfigOutput bool
 	JSONOutput   bool
 	Help         bool

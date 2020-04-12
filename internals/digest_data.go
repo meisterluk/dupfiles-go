@@ -41,7 +41,7 @@ func (d *DigestData) Add(digest []byte) (int, bool) {
 	// }
 	for i := 0; i*d.digestSize < len(d.data[firstByte]); i++ {
 		itemDigestSuffix := d.data[firstByte][i*d.digestSize : (i+1)*d.digestSize-1]
-		if eqByteSlices(itemDigestSuffix, digestSuffix) {
+		if EqByteSlices(itemDigestSuffix, digestSuffix) {
 			// set dups byte to "min(dups + 1, MaxCountInDataStructure)".
 			dups := uint(d.data[firstByte][i*d.digestSize+d.digestSize-1])
 			if dups != MaxCountInDataStructure {
@@ -93,7 +93,7 @@ func (d *DigestData) Duplicates(firstByte byte, idx int) int {
 func (d *DigestData) IndexOf(digest []byte) (int, bool) {
 	digestList := d.data[digest[0]]
 	for i := 0; i*d.digestSize < len(digestList); i++ {
-		if eqByteSlices(digest[1:], digestList[i*d.digestSize:(i+1)*d.digestSize-1]) {
+		if EqByteSlices(digest[1:], digestList[i*d.digestSize:(i+1)*d.digestSize-1]) {
 			return i, true
 		}
 	}
@@ -111,7 +111,7 @@ func (d *DigestData) Dump() {
 			dups := int(d.data[i][(j+1)*d.digestSize-1] & MaxCountInDataStructure)
 			log.Printf("%s%s‖%t‖%d ", firstByte, hex.EncodeToString(digestSuffix), disabled, dups)
 
-			if !eqByteSlices(digestSuffix, d.DigestSuffix(byte(i), j)) {
+			if !EqByteSlices(digestSuffix, d.DigestSuffix(byte(i), j)) {
 				panic("digest do not match")
 			}
 			if disabled != d.Disabled(byte(i), j) {

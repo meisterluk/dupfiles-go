@@ -47,7 +47,7 @@ type DuplicateSet struct {
 	Set    []DupOutput
 }
 
-type walkParameters struct {
+type WalkParameters struct {
 	basePath             string
 	dfs                  bool
 	ignorePermErrors     bool
@@ -100,11 +100,11 @@ func HashNode(hash Hash, basenameMode bool, basePath string, data FileData) []by
 	}
 }
 
-// walkDFS visit all subnodes of node at nodePath in DFS manner with respect to all parameters provided.
+// WalkDFS visit all subnodes of node at nodePath in DFS manner with respect to all parameters provided.
 // nodePath is relative to params.basePath. node is FileInfo of nodePath. params is uniform among all walk calls.
 // Returns whether excludeTree ignores this node (bool) and whether processing shall continue or not (error).
 // NOTE this implementation assumes that actual directory depths do not trigger a stackoverflow (on my system, the max depth is 26, so I should be fine)
-func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, error) {
+func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, error) {
 	// an error occured somewhere ⇒ terminated prematurely & gracefully
 	if *params.shallStop {
 		return true, nil
@@ -119,7 +119,7 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 		fullPath := filepath.Join(params.basePath, nodePath)
 		numEntries := 0
 		entries, err := ioutil.ReadDir(fullPath)
-		if err != nil && !(params.ignorePermErrors && isPermissionError(err)) {
+		if err != nil && !(params.ignorePermErrors && IsPermissionError(err)) {
 			return true, err
 		}
 
@@ -140,7 +140,7 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 				}
 			}
 
-			countNode, err := walkDFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			countNode, err := WalkDFS(filepath.Join(nodePath, entry.Name()), entry, params)
 			if err != nil {
 				return true, err
 			}
@@ -166,7 +166,7 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 				}
 			}
 
-			countNode, err := walkDFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			countNode, err := WalkDFS(filepath.Join(nodePath, entry.Name()), entry, params)
 			if err != nil {
 				return true, err
 			}
@@ -187,7 +187,7 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			if err != nil {
 				return false, err
 			}
-			xorByteSlices(digest, hash.Digest())
+			XORByteSlices(digest, hash.Digest())
 		}
 
 		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: digest}
@@ -199,11 +199,11 @@ func walkDFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 	return true, nil
 }
 
-// walkBFS visit all subnodes of node at nodePath in BFS manner with respect to all parameters provided.
+// WalkBFS visit all subnodes of node at nodePath in BFS manner with respect to all parameters provided.
 // nodePath is relative to params.basePath. node is FileInfo of nodePath. params is uniform among all walk calls.
 // Returns whether excludeTree ignores this node (bool) and whether processing shall continue or not (error).
 // NOTE this implementation assumes that actual directory depths do not trigger a stackoverflow (on my system, the max depth is 26, so I should be fine)
-func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, error) {
+func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, error) {
 	// an error occured somewhere ⇒ terminated prematurely & gracefully
 	if *params.shallStop {
 		return true, nil
@@ -218,7 +218,7 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 		fullPath := filepath.Join(params.basePath, nodePath)
 		numEntries := 0
 		entries, err := ioutil.ReadDir(fullPath)
-		if err != nil && !(params.ignorePermErrors && isPermissionError(err)) {
+		if err != nil && !(params.ignorePermErrors && IsPermissionError(err)) {
 			return true, err
 		}
 
@@ -239,7 +239,7 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 				}
 			}
 
-			countNode, err := walkBFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			countNode, err := WalkBFS(filepath.Join(nodePath, entry.Name()), entry, params)
 			if err != nil {
 				return true, err
 			}
@@ -265,7 +265,7 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 				}
 			}
 
-			countNode, err := walkBFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			countNode, err := WalkBFS(filepath.Join(nodePath, entry.Name()), entry, params)
 			if err != nil {
 				return true, err
 			}
@@ -286,7 +286,7 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 			if err != nil {
 				return false, err
 			}
-			xorByteSlices(digest, hash.Digest())
+			XORByteSlices(digest, hash.Digest())
 		}
 
 		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: digest}
@@ -298,12 +298,12 @@ func walkBFS(nodePath string, node os.FileInfo, params *walkParameters) (bool, e
 	return true, nil
 }
 
-// unitWalk visit all subnodes of node in DFS/BFS manner with respect to all parameters provided.
+// UnitWalk visit all subnodes of node in DFS/BFS manner with respect to all parameters provided.
 // Nondirectories are emitted to fileOut. Directories are emitted to dirOut.
 // If any error occurs, [only] the first error will be written to errChan. Otherwise nil is written to the error channel.
 // Thus errChan also serves as signal to indicate when {fileOut, dirOut} channel won't receive any more data.
 // NOTE this function defers recover. Run it as goroutine.
-func unitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, basenameMode bool, digestSize int,
+func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, basenameMode bool, digestSize int,
 	fileOut chan<- FileData, dirOut chan<- DirData,
 	errChan chan error, shallStop *bool, wg *sync.WaitGroup,
 ) {
@@ -323,7 +323,7 @@ func unitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string
 		}
 		regexes = append(regexes, regex)
 	}
-	walkParams := walkParameters{
+	walkParams := WalkParameters{
 		basePath: node, dfs: dfs, ignorePermErrors: ignorePermErrors, excludeBasename: excludeBasename,
 		hashAlgorithm: hashAlgorithm, excludeBasenameRegex: regexes, excludeTree: excludeTree,
 		basenameMode: basenameMode, fileOut: fileOut, dirOut: dirOut, digestSize: digestSize,
@@ -338,9 +338,9 @@ func unitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string
 
 	// actually traverse the file system
 	if dfs {
-		_, err = walkDFS("", baseNodeInfo, &walkParams)
+		_, err = WalkDFS("", baseNodeInfo, &walkParams)
 	} else {
-		_, err = walkBFS("", baseNodeInfo, &walkParams)
+		_, err = WalkBFS("", baseNodeInfo, &walkParams)
 	}
 	if err != nil {
 		errChan <- err
@@ -348,10 +348,10 @@ func unitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string
 	}
 }
 
-// unitHashFile computes the hash of the non-directory it receives over the inputFile channel
-// and sends the annotated digest to both; unitHashDir and unitFinal.
+// UnitHashFile computes the hash of the non-directory it receives over the inputFile channel
+// and sends the annotated digest to both; UnitHashDir and UnitFinal.
 // NOTE this function defers recover. Run it as goroutine.
-func unitHashFile(hashAlgorithm hashAlgo, basenameMode bool, basePath string,
+func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
 	inputFile <-chan FileData, outputDir chan<- FileData, outputFinal chan<- FileData,
 	errChan chan<- error, done func(), wg *sync.WaitGroup,
 ) {
@@ -373,12 +373,12 @@ func unitHashFile(hashAlgorithm hashAlgo, basenameMode bool, basePath string,
 	}
 }
 
-// unitHashDir computes hashes of directories. It receives directories from unitWalk
-// (i.e. inputWalk) and receives file hashes from unitHashFile (i.e. inputFile).
+// UnitHashDir computes hashes of directories. It receives directories from UnitWalk
+// (i.e. inputWalk) and receives file hashes from UnitHashFile (i.e. inputFile).
 // Those make up directory hashes. Once all data is collected, directory hashes
-// are propagated to unitFinal (i.e. outputFinal).
+// are propagated to UnitFinal (i.e. outputFinal).
 // NOTE this function defers recover. Run it as goroutine.
-func unitHashDir(hashAlgorithm hashAlgo,
+func UnitHashDir(hashAlgorithm HashAlgo,
 	inputWalk <-chan DirData, inputFile <-chan FileData, outputFinal chan<- DirData,
 	errChan chan<- error, wg *sync.WaitGroup,
 ) {
@@ -401,19 +401,19 @@ func unitHashDir(hashAlgorithm hashAlgo,
 
 	PROP:
 		for {
-			node = dir(node)
+			node = Dir(node)
 			//log.Printf("propagation: iterate with '%s'\n", node) // TODO
 
 			// Case 1: digest makes node complete ⇒ propagate further up
 			// Case 2: node is still incomplete ⇒ stop propagation
-			// Case 3: node does not exist ⇒ stop propagation, we need to wait for the actual EntriesMissing value via unitWalk
+			// Case 3: node does not exist ⇒ stop propagation, we need to wait for the actual EntriesMissing value via UnitWalk
 
 			found := false
 			stop := false
 			for i := 0; i < len(incompleteDir); i++ {
 				if node == incompleteDir[i].Path {
 					found = true
-					xorByteSlices(incompleteDir[i].Digest, digest)
+					XORByteSlices(incompleteDir[i].Digest, digest)
 					incompleteDir[i].EntriesMissing--
 
 					// emit directory hash, if all hashes were provided
@@ -463,7 +463,7 @@ func unitHashDir(hashAlgorithm hashAlgo,
 	}
 
 LOOP:
-	// terminate if unitWalk AND unitFile have terminated.
+	// terminate if UnitWalk AND unitFile have terminated.
 	// before that update incompleteDir until all entries are complete
 	// and emit complete ones to outputFinal
 	for {
@@ -474,7 +474,7 @@ LOOP:
 				//log.Printf("receiving initial data for directory '%s': entries expected = %v\n", dirData.Path, dirData.EntriesMissing) // TODO
 				for i := 0; i < len(incompleteDir); i++ {
 					if dirData.Path == incompleteDir[i].Path {
-						xorByteSlices(incompleteDir[i].Digest, dirData.Digest)
+						XORByteSlices(incompleteDir[i].Digest, dirData.Digest)
 						// why "+ 1"? This is abused to distinguish value 0 from -1.
 						// value EntriesMissing=0 means "all entries have been found && digest is finished".
 						// value EntriesMissing=-1 means "this entry was just initialized".
@@ -516,11 +516,11 @@ LOOP:
 		case fileData, ok := <-inputFile:
 			if ok {
 				//log.Printf("receiving digest for file '%s'\n", fileData.Path) // TODO
-				directory := dir(fileData.Path)
+				directory := Dir(fileData.Path)
 
 				for i := 0; i < len(incompleteDir); i++ {
 					if directory == incompleteDir[i].Path {
-						xorByteSlices(incompleteDir[i].Digest, fileData.Digest)
+						XORByteSlices(incompleteDir[i].Digest, fileData.Digest)
 						incompleteDir[i].EntriesMissing--
 						//log.Printf("EntriesMissing of '%s' = %d (via file)\n", incompleteDir[i].Path, incompleteDir[i].EntriesMissing) // TODO
 
@@ -573,9 +573,9 @@ LOOP:
 	close(outputFinal)
 }
 
-// unitFinal receives digests through the two channels inputFile and inputDir.
+// UnitFinal receives digests through the two channels inputFile and inputDir.
 // It converts entries to ReportTailLines and forwards them to the outputEntry channel.
-func unitFinal(inputFile <-chan FileData, inputDir <-chan DirData, outputEntry chan<- ReportTailLine, errChan chan<- error, wg *sync.WaitGroup) {
+func UnitFinal(inputFile <-chan FileData, inputDir <-chan DirData, outputEntry chan<- ReportTailLine, errChan chan<- error, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var fileFinished, dirFinished bool
@@ -661,14 +661,14 @@ func HashATree(
 
 	wg.Add(3 + 4)
 
-	go unitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.DigestSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
+	go UnitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.DigestSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
 	for i := 0; i < 4; i++ { // TODO static number 4 is wrong, right?
-		go unitHashFile(h, basenameMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
+		go UnitHashFile(h, basenameMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
 			workerTerminated <- true
 		}, &wg)
 	}
-	go unitHashDir(h, walkToDir, fileToDir, dirToFinal, errorChan, &wg)
-	go unitFinal(fileToFinal, dirToFinal, outChan, errorChan, &wg)
+	go UnitHashDir(h, walkToDir, fileToDir, dirToFinal, errorChan, &wg)
+	go UnitFinal(fileToFinal, dirToFinal, outChan, errorChan, &wg)
 
 	// worker counting goroutine
 	wg.Add(1)

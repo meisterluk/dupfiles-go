@@ -5,58 +5,58 @@ import (
 	"strings"
 )
 
-type hashAlgo string
+type HashAlgo string
 
 const (
-	hashCRC64       hashAlgo = `crc64`
-	hashCRC32       hashAlgo = `crc32`
-	hashFNV1_32     hashAlgo = `fnv-1-32`
-	hashFNV1_64     hashAlgo = `fnv-1-64`
-	hashFNV1_128    hashAlgo = `fnv-1-128`
-	hashFNV1A32     hashAlgo = `fnv-1a-32`
-	hashFNV1A64     hashAlgo = `fnv-1a-64`
-	hashFNV1A128    hashAlgo = `fnv-1a-128`
-	hashADLER32     hashAlgo = `adler32`
-	hashMD5         hashAlgo = `md5`
-	hashSHA1        hashAlgo = `sha-1`
-	hashSHA256      hashAlgo = `sha-256`
-	hashSHA512      hashAlgo = `sha-512`
-	hashSHA3_512    hashAlgo = `sha-3-512`
-	hashSHAKE256_64 hashAlgo = `shake256-64`
+	HashCRC64       HashAlgo = `crc64`
+	HashCRC32       HashAlgo = `crc32`
+	HashFNV1_32     HashAlgo = `fnv-1-32`
+	HashFNV1_64     HashAlgo = `fnv-1-64`
+	HashFNV1_128    HashAlgo = `fnv-1-128`
+	HashFNV1A32     HashAlgo = `fnv-1a-32`
+	HashFNV1A64     HashAlgo = `fnv-1a-64`
+	HashFNV1A128    HashAlgo = `fnv-1a-128`
+	HashADLER32     HashAlgo = `adler32`
+	HashMD5         HashAlgo = `md5`
+	HashSHA1        HashAlgo = `sha-1`
+	HashSHA256      HashAlgo = `sha-256`
+	HashSHA512      HashAlgo = `sha-512`
+	HashSHA3_512    HashAlgo = `sha-3-512`
+	HashSHAKE256_64 HashAlgo = `shake256-64`
 )
 
-const defaultHash hashAlgo = hashCRC64
+const defaultHash HashAlgo = HashCRC64
 
 // SupportedHashAlgorithms returns the list of supported hash algorithms.
 // The slice contains specified hash algorithm identifiers
 func SupportedHashAlgorithms() []string {
 	return []string{
-		string(hashCRC64),
-		string(hashCRC32),
-		string(hashFNV1_32),
-		string(hashFNV1_64),
-		string(hashFNV1_128),
-		string(hashFNV1A32),
-		string(hashFNV1A64),
-		string(hashFNV1A128),
-		string(hashADLER32),
-		string(hashMD5),
-		string(hashSHA1),
-		string(hashSHA256),
-		string(hashSHA512),
-		string(hashSHA3_512),
-		string(hashSHAKE256_64),
+		string(HashCRC64),
+		string(HashCRC32),
+		string(HashFNV1_32),
+		string(HashFNV1_64),
+		string(HashFNV1_128),
+		string(HashFNV1A32),
+		string(HashFNV1A64),
+		string(HashFNV1A128),
+		string(HashADLER32),
+		string(HashMD5),
+		string(HashSHA1),
+		string(HashSHA256),
+		string(HashSHA512),
+		string(HashSHA3_512),
+		string(HashSHAKE256_64),
 	}
 }
 
-func isValidHashAlgo(hashalgo string) bool {
+func isValidHashAlgo(Hashalgo string) bool {
 	whitelist := []string{
 		"crc64", "crc32", "fnv-1-32", "fnv-1-64", "fnv-1-128", "fnv-1a-32", "fnv-1a-64",
 		"fnv-1a-128", "adler32", "md5", "sha-1", "sha-256", "sha-512", "sha-3",
 		"shake256-128",
 	}
 	for _, item := range whitelist {
-		if item == hashalgo {
+		if item == Hashalgo {
 			return true
 		}
 	}
@@ -64,86 +64,86 @@ func isValidHashAlgo(hashalgo string) bool {
 	return false
 }
 
-// OutputSize returns the output size in bytes for a given hash algorithm.
-func (h hashAlgo) DigestSize() int {
+// DigestSize returns the output size in bytes for a given hash algorithm.
+func (h HashAlgo) DigestSize() int {
 	switch h {
-	case hashCRC64:
+	case HashCRC64:
 		return 8
-	case hashCRC32:
+	case HashCRC32:
 		return 4
-	case hashFNV1_32:
+	case HashFNV1_32:
 		return 4
-	case hashFNV1_64:
+	case HashFNV1_64:
 		return 8
-	case hashFNV1_128:
+	case HashFNV1_128:
 		return 16
-	case hashFNV1A32:
+	case HashFNV1A32:
 		return 4
-	case hashFNV1A64:
+	case HashFNV1A64:
 		return 8
-	case hashFNV1A128:
+	case HashFNV1A128:
 		return 16
-	case hashADLER32:
+	case HashADLER32:
 		return 4
-	case hashMD5:
+	case HashMD5:
 		return 16
-	case hashSHA1:
+	case HashSHA1:
 		return 20
-	case hashSHA256:
+	case HashSHA256:
 		return 32
-	case hashSHA512:
+	case HashSHA512:
 		return 64
-	case hashSHA3_512:
+	case HashSHA3_512:
 		return 64
-	case hashSHAKE256_64:
+	case HashSHAKE256_64:
 		return 8
 	}
 	return 0
 }
 
 // Algorithm returns a Hash instance for the given hash algorithm name.
-func (h hashAlgo) Algorithm() Hash {
+func (h HashAlgo) Algorithm() Hash {
 	switch h {
-	case hashCRC64:
+	case HashCRC64:
 		return NewCRC64()
-	case hashCRC32:
+	case HashCRC32:
 		return NewCRC32()
-	case hashFNV1_32:
+	case HashFNV1_32:
 		return NewFNV1_32()
-	case hashFNV1_64:
+	case HashFNV1_64:
 		return NewFNV1_64()
-	case hashFNV1_128:
+	case HashFNV1_128:
 		return NewFNV1_128()
-	case hashFNV1A32:
+	case HashFNV1A32:
 		return NewFNV1a_32()
-	case hashFNV1A64:
+	case HashFNV1A64:
 		return NewFNV1a_64()
-	case hashFNV1A128:
+	case HashFNV1A128:
 		return NewFNV1a_128()
-	case hashADLER32:
+	case HashADLER32:
 		return NewAdler32()
-	case hashMD5:
+	case HashMD5:
 		return NewMD5()
-	case hashSHA1:
+	case HashSHA1:
 		return NewSHA1()
-	case hashSHA256:
+	case HashSHA256:
 		return NewSHA256()
-	case hashSHA512:
+	case HashSHA512:
 		return NewSHA512()
-	case hashSHA3_512:
+	case HashSHA3_512:
 		return NewSHA3_512()
-	case hashSHAKE256_64:
+	case HashSHAKE256_64:
 		return NewSHAKE256_128()
 	}
 	return defaultHash.Algorithm()
 }
 
-// HashAlgorithmFromString returns a hashAlgo instance, give the hash algorithm's name as a string
-func HashAlgorithmFromString(name string) (hashAlgo, error) {
+// HashAlgorithmFromString returns a HashAlgo instance, give the hash algorithm's name as a string
+func HashAlgorithmFromString(name string) (HashAlgo, error) {
 	name = strings.ToLower(name)
 	for _, algo := range SupportedHashAlgorithms() {
 		if name == algo {
-			return hashAlgo(algo), nil
+			return HashAlgo(algo), nil
 		}
 	}
 	return defaultHash, fmt.Errorf(`unknown hash algorithm %q`, name)

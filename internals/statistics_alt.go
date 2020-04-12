@@ -27,13 +27,13 @@ func (a *Analysis) String() string {
 		bytesPerFile = a.TotalByteSize / a.CountFiles
 	}
 	return fmt.Sprintf(`maxdepth=%d bytes=%s #=%d ratio=%s/file  #files=%d #dirs=%d #devicefiles=%d #links=%d #pipes=%d #socket=%d`,
-		a.MaxDepth, humanReadableBytes(a.TotalByteSize), a.TotalEntries, humanReadableBytes(bytesPerFile),
+		a.MaxDepth, HumanReadableBytes(a.TotalByteSize), a.TotalEntries, HumanReadableBytes(bytesPerFile),
 		a.CountFiles, a.CountDirectory, a.CountDeviceFile, a.CountLink, a.CountFIFOPipe,
 		a.CountUNIXDomainSocket,
 	)
 }
 
-func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors bool, excludeFilename []string, excludeFilenameRegexp []*regexp.Regexp, excludeTree []string) error {
+func DoAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors bool, excludeFilename []string, excludeFilenameRegexp []*regexp.Regexp, excludeTree []string) error {
 	for _, tree := range excludeTree {
 		if len(tree) > 0 && strings.HasSuffix(baseNode, tree) {
 			return nil
@@ -88,7 +88,7 @@ func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 		}
 
 		for _, fileInfo := range entries {
-			err = doAnalysis(data, depth, filepath.Join(baseNode, fileInfo.Name()), ignorePermErrors, excludeFilename, excludeFilenameRegexp, excludeTree)
+			err = DoAnalysis(data, depth, filepath.Join(baseNode, fileInfo.Name()), ignorePermErrors, excludeFilename, excludeFilenameRegexp, excludeTree)
 			if err != nil {
 				return err
 			}
@@ -101,7 +101,7 @@ func doAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 	return fmt.Errorf(`error for %s: %s`, baseNode, err.Error())
 }
 
-func analyze(baseNode string, ignorePermErrors bool, excludeFilename []string, excludeFilenameRegex []string, excludeTree []string) (Analysis, error) {
+func Analyze(baseNode string, ignorePermErrors bool, excludeFilename []string, excludeFilenameRegex []string, excludeTree []string) (Analysis, error) {
 	var data Analysis
 
 	excludeFilenameRegexp := make([]*regexp.Regexp, 0)
@@ -113,7 +113,7 @@ func analyze(baseNode string, ignorePermErrors bool, excludeFilename []string, e
 		excludeFilenameRegexp = append(excludeFilenameRegexp, re)
 	}
 
-	err := doAnalysis(&data, 0, baseNode, ignorePermErrors, excludeFilename, excludeFilenameRegexp, excludeTree)
+	err := DoAnalysis(&data, 0, baseNode, ignorePermErrors, excludeFilename, excludeFilenameRegexp, excludeTree)
 	if err != nil {
 		return data, err
 	}

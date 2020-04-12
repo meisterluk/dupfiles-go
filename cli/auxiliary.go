@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// envOr returns either environment variable envKey (if non-empty) or the default Value
-func envOr(envKey, defaultValue string) string {
+// EnvOr returns either environment variable envKey (if non-empty) or the default Value
+func EnvOr(envKey, defaultValue string) string {
 	val, ok := os.LookupEnv(envKey)
 	if !ok || val == "" {
 		return defaultValue
@@ -17,8 +17,8 @@ func envOr(envKey, defaultValue string) string {
 	return envKey
 }
 
-// envToBool returns environment variable envKey considered as boolean value
-func envToBool(envKey string) (bool, error) {
+// EnvToBool returns environment variable envKey considered as boolean value
+func EnvToBool(envKey string) (bool, error) {
 	val, ok := os.LookupEnv(envKey)
 	if ok && (val == `1` || strings.ToLower(val) == `true`) {
 		return true, nil
@@ -28,8 +28,8 @@ func envToBool(envKey string) (bool, error) {
 	return false, fmt.Errorf(`boolean env key '%s' has non-bool value '%s'`, envKey, val)
 }
 
-// envToInt returns environment variable envKey considered as integer value
-func envToInt(envKey string) (int, bool) {
+// EnvToInt returns environment variable envKey considered as integer value
+func EnvToInt(envKey string) (int, bool) {
 	val, ok := os.LookupEnv(envKey)
 	if !ok {
 		return 0, false
@@ -41,7 +41,7 @@ func envToInt(envKey string) (int, bool) {
 	return int(i), true
 }
 
-// countCPUs determines the number of logical CPUs in this machine
-func countCPUs() int {
+// CountCPUs determines the number of logical CPUs in this machine
+func CountCPUs() int {
 	return runtime.NumCPU()
 }

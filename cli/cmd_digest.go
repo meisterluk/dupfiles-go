@@ -29,8 +29,8 @@ type DigestCommand struct {
 	Help                 bool     `json:"help"`
 }
 
-// cliDigestCommand defines the CLI arguments as kingpin requires them
-type cliDigestCommand struct {
+// CLIDigestCommand defines the CLI arguments as kingpin requires them
+type CLIDigestCommand struct {
 	cmd                  *kingpin.CmdClause
 	BaseNode             *string
 	BFS                  *bool
@@ -48,15 +48,15 @@ type cliDigestCommand struct {
 	Help                 *bool
 }
 
-func newCLIDigestCommand(app *kingpin.Application) *cliDigestCommand {
-	c := new(cliDigestCommand)
+func NewCLIDigestCommand(app *kingpin.Application) *CLIDigestCommand {
+	c := new(CLIDigestCommand)
 	c.cmd = app.Command("digest", "Give the digest of an individual node.")
 
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
 	c.DFS = c.cmd.Flag("dfs", "apply depth-first search for file system").Bool()
 	c.BFS = c.cmd.Flag("bfs", "apply breadth-first search for file system").Bool()
 	c.IgnorePermErrors = c.cmd.Flag("ignore-perm-errors", "ignore permission errors and continue traversal").Bool()
-	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(envOr("DUPFILES_HASH_ALGORITHM", "fnv-1a-128")).Short('a').String()
+	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", "fnv-1a-128")).Short('a').String()
 	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
 	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
 	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings() // TODO trim any trailing/leading separators
@@ -69,7 +69,7 @@ func newCLIDigestCommand(app *kingpin.Application) *cliDigestCommand {
 	return c
 }
 
-func (c *cliDigestCommand) Validate() (*DigestCommand, error) {
+func (c *CLIDigestCommand) Validate() (*DigestCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {
 		return nil, fmt.Errorf("basenode must not be empty")
@@ -104,31 +104,31 @@ func (c *cliDigestCommand) Validate() (*DigestCommand, error) {
 	cmd.Help = false
 
 	// handle environment variables
-	envDFS, errDFS := envToBool("DUPFILES_DFS")
+	envDFS, errDFS := EnvToBool("DUPFILES_DFS")
 	if errDFS == nil {
 		cmd.DFS = envDFS
 		cmd.BFS = !envDFS
 	}
-	envEmpty, errEmpty := envToBool("DUPFILES_EMPTY_MODE")
+	envEmpty, errEmpty := EnvToBool("DUPFILES_EMPTY_MODE")
 	if errEmpty == nil {
 		cmd.EmptyMode = envEmpty
 		cmd.BasenameMode = !envEmpty
 	}
 	/// DUPFILES_HASH_ALGORITHM was already handled
-	envIPE, errIPE := envToBool("DUPFILES_IGNORE_PERM_ERRORS")
+	envIPE, errIPE := EnvToBool("DUPFILES_IGNORE_PERM_ERRORS")
 	if errIPE == nil {
 		cmd.IgnorePermErrors = envIPE
 	}
-	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	envJSON, errJSON := EnvToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON
 	}
 	/// DUPFILES_OUTPUT was already handled
 	if cmd.Workers == 0 {
-		if w, ok := envToInt("DUPFILES_WORKERS"); ok {
+		if w, ok := EnvToInt("DUPFILES_WORKERS"); ok {
 			cmd.Workers = w
 		} else {
-			cmd.Workers = countCPUs()
+			cmd.Workers = CountCPUs()
 		}
 	}
 

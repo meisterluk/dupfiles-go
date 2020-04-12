@@ -8,16 +8,16 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// cliVersionCommand defines the CLI arguments as kingpin requires them
-type cliVersionCommand struct {
+// CLIVersionCommand defines the CLI arguments as kingpin requires them
+type CLIVersionCommand struct {
 	cmd          *kingpin.CmdClause
 	ConfigOutput *bool
 	JSONOutput   *bool
 	Help         *bool
 }
 
-func newCLIVersionCommand(app *kingpin.Application) *cliVersionCommand {
-	c := new(cliVersionCommand)
+func NewCLIVersionCommand(app *kingpin.Application) *CLIVersionCommand {
+	c := new(CLIVersionCommand)
 	c.cmd = app.Command("version", "Print implementation version, license and author. Exit code is always 0.")
 
 	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
@@ -26,14 +26,14 @@ func newCLIVersionCommand(app *kingpin.Application) *cliVersionCommand {
 	return c
 }
 
-func (c *cliVersionCommand) Validate() (*VersionCommand, error) {
-	// migrate cliVersionCommand to versionCommand
+func (c *CLIVersionCommand) Validate() (*VersionCommand, error) {
+	// migrate CLIVersionCommand to versionCommand
 	cmd := new(VersionCommand)
 	cmd.ConfigOutput = *c.ConfigOutput
 	cmd.JSONOutput = *c.JSONOutput
 
 	// handle environment variables
-	envJSON, errJSON := envToBool("DUPFILES_JSON")
+	envJSON, errJSON := EnvToBool("DUPFILES_JSON")
 	if errJSON == nil {
 		cmd.JSONOutput = envJSON
 	}
