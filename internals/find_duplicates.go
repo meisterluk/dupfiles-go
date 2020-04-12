@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 const ExpectedMatchesPerNode = 4
@@ -504,7 +505,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	for t, tree := range trees {
 		for refNode := range traverseTree(tree, data, digestSizeI) {
 			// find all nodes with matching digest
-			stopSearch := false
+			var stopSearch int32
 			expectedDuplicates := data.Duplicates(refNode.digestFirstByte, int(refNode.digestIndex>>1))
 
 			if expectedDuplicates == 0 {
@@ -526,7 +527,13 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 				matches = append(matches, matchData)
 
 				if len(matches)-1 == expectedDuplicates && expectedDuplicates != MaxCountInDataStructure {
-					stopSearch = true
+					// NOTE stopSearch used to be a simple boolean.
+					// This is not a data race, because there is one writer
+					// and an arbitrary number of readers. And it does not matter
+					// if readers read a wrong value. stopSearch just stops goroutines
+					// sooner and thus saves computation time.
+					// Golang -race complains it is a data race. So we make it an atomic operation.
+					atomic.StoreInt32(&stopSearch, 1)
 				}
 			}
 
@@ -614,7 +621,7 @@ func traverseTree(rootNode *hierarchyNode, data *DigestData, digestSizeI int) <-
 // matchTree traverses all trees and emits any equivalent nodes of refNode.
 // NOTE this function traverses all trees simultaneously.
 // NOTE this function also returns refNode.
-func matchTree(trees []*hierarchyNode, reportFiles []string, refNode *hierarchyNode, data *DigestData, digestSize int, stop *bool) <-chan match {
+func matchTree(trees []*hierarchyNode, reportFiles []string, refNode *hierarchyNode, data *DigestData, digestSize int, stop *int32) <-chan match {
 	var wg sync.WaitGroup
 	outChan := make(chan match)
 
@@ -633,7 +640,7 @@ func matchTree(trees []*hierarchyNode, reportFiles []string, refNode *hierarchyN
 		return false
 	}
 
-	go func(trees []*hierarchyNode, refNode *hierarchyNode, data *DigestData, digestSize int, stop *bool, outChan chan<- match) {
+	go func(trees []*hierarchyNode, refNode *hierarchyNode, data *DigestData, digestSize int, stop *int32, outChan chan<- match) {
 		defer close(outChan)
 
 		var recur func(*hierarchyNode, string)
@@ -647,7 +654,7 @@ func matchTree(trees []*hierarchyNode, reportFiles []string, refNode *hierarchyN
 				}
 
 				// stop if maximum number of matches was reached
-				if *stop {
+				if atomic.LoadInt32(stop) == 1 {
 					return
 				}
 
