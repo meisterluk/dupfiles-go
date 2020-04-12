@@ -198,6 +198,8 @@ type match struct {
 // FindDuplicates finds duplicate nodes in report files. The results are sent to outChan.
 // Any errors are sent to errChan. At termination outChan and errChan are closed.
 func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan chan<- error) {
+	// TODO add Output as input argument here?
+
 	defer close(outChan)
 	defer close(errChan)
 
@@ -538,7 +540,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			}
 
 			// TODO remove debug
-			//fmt.Printf("found %d matches, expected %d, for %s with %s%s\n", len(matches), expectedDuplicates+1, refNode.basename, hex.EncodeToString([]byte{refNode.digestFirstByte}), hex.EncodeToString(data[refNode.digestFirstByte][int(refNode.digestIndex>>1)*digestSizeI:int(refNode.digestIndex>>1)*digestSizeI+digestSizeI-1]))
+			//log.Printf("found %d matches, expected %d, for %s with %s%s\n", len(matches), expectedDuplicates+1, refNode.basename, hex.EncodeToString([]byte{refNode.digestFirstByte}), hex.EncodeToString(data[refNode.digestFirstByte][int(refNode.digestIndex>>1)*digestSizeI:int(refNode.digestIndex>>1)*digestSizeI+digestSizeI-1]))
 
 			if len(matches) <= 1 {
 				times := fmt.Sprintf("%d", expectedDuplicates+1)

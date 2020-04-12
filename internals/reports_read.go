@@ -9,12 +9,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var headLineRegex *regexp.Regexp
+var tailLineRegex *regexp.Regexp
 
 func init() {
 	headLineRegex = regexp.MustCompilePOSIX(`# +([0-9.]+(\.[0-9.]+){0,2}) +([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}) +([-_a-zA-Z0-9]+) (B|E) +([-._a-zA-Z0-9]+) +([^\r\n]+)`)
+	tailLineRegex = regexp.MustCompilePOSIX(`([0-9a-fA-F]+) +([A-Z]) +([0-9]+) ([^\r\n]+)`)
 }
 
 func NewReportReader(filepath string) (*Report, error) {
@@ -69,6 +72,10 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			return tail, io.EOF
 		}
 
+		if !utf8.Valid(buffer[0:bufferIndex]) {
+			return tail, fmt.Errorf(`non-UTF-8 data found in report file, but report files must be UTF-8 encoded`)
+		}
+
 		if buffer[0] == '#' && r.Head.HashAlgorithm == "" {
 			// parse head line
 
@@ -114,12 +121,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 
 		} else {
 			// parse tail line
-			regex, err := regexp.CompilePOSIX(`([0-9a-fA-F]+) +([A-Z]) +([0-9]+) ([^\r\n]+)`)
-			if err != nil {
-				return tail, err
-			}
-
-			groups := regex.FindSubmatch(buffer[0:bufferIndex])
+			groups := tailLineRegex.FindSubmatch(buffer[0:bufferIndex])
 			bytes, err := hex.DecodeString(string(groups[1]))
 			if err != nil {
 				return tail, fmt.Errorf(`could not decode hexdigest '%s'`, groups[1])
@@ -176,19 +178,4 @@ func parseVersionNumber(version string) ([3]uint16, error) {
 
 func parseTimestamp(timestamp string) (time.Time, error) {
 	return time.Parse("2006-01-02T15:04:05", timestamp)
-}
-
-func isValidHashAlgo(hashalgo string) bool {
-	whitelist := []string{
-		"crc64", "crc32", "fnv-1-32", "fnv-1-64", "fnv-1-128", "fnv-1a-32", "fnv-1a-64",
-		"fnv-1a-128", "adler32", "md5", "sha-1", "sha-256", "sha-512", "sha-3",
-		"shake256-128",
-	}
-	for _, item := range whitelist {
-		if item == hashalgo {
-			return true
-		}
-	}
-
-	return false
 }

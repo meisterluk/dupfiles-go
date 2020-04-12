@@ -1,0 +1,24 @@
+Release checklist
+=================
+author:: meisterluk
+
+Before publishing a new release, I should check the following list:
+
+Toolchain
+---------
+
+• Update your software stack to the latest Golang toolchain.
+
+Code quality
+------------
+
+• New bug fixes contained? Test cases needed.
+• All functions and structs have a proper documentation
+• Run “report” and “find” after “go build -race …” to catch trivial concurrency bugs
+
+Concurrency checks
+------------------
+
+• WaitGroup.Add(n) is always called before generating the goroutine
+• if one goroutine B waits for data of another goroutine A, we need to make sure that A does not terminate prematurely without stopping operation of B
+

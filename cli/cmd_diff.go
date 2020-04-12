@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 
 	"github.com/meisterluk/dupfiles-go/internals"
@@ -19,6 +18,8 @@ type targetPair struct {
 	Report   string
 }
 
+// targetPairs just implements the wrapper required by kingpin. See:
+// https://github.com/alecthomas/kingpin/blob/b6657d9477a694/README.md#consuming-all-remaining-arguments
 type targetPairs []targetPair
 
 func (t *targetPairs) Set(value string) error {
@@ -140,7 +141,7 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 		if err != nil {
 			return 1, err
 		}
-		fmt.Fprintf(os.Stderr, "# %s ⇒ %s\n", match.Report, match.BaseNode)
+		log.Printfln("# %s ⇒ %s", match.Report, match.BaseNode)
 		for {
 			tail, err := rep.Iterate()
 			if err == io.EOF {
