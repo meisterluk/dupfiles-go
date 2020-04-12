@@ -313,8 +313,6 @@ func unitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string
 	defer close(fileOut)
 	defer close(dirOut)
 
-	wg.Add(1)
-
 	// build one single params instance (to be shared among all recursive call)
 	regexes := make([]*regexp.Regexp, 0, len(excludeBasenameRegex))
 	for _, r := range excludeBasenameRegex {
@@ -361,8 +359,6 @@ func unitHashFile(hashAlgorithm hashAlgo, basenameMode bool, basePath string,
 	defer wg.Done()
 	defer done()
 
-	wg.Add(1)
-
 	// initialize a hash instance
 	hash := hashAlgorithm.Algorithm()
 
@@ -388,8 +384,6 @@ func unitHashDir(hashAlgorithm hashAlgo,
 ) {
 	defer recover()
 	defer wg.Done()
-
-	wg.Add(1)
 
 	// collection of DirData with intermediate hashes
 	incompleteDir := make([]DirData, 0, 100)
@@ -584,8 +578,6 @@ LOOP:
 func unitFinal(inputFile <-chan FileData, inputDir <-chan DirData, outputEntry chan<- ReportTailLine, errChan chan<- error, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	wg.Add(1)
-
 	var fileFinished, dirFinished bool
 LOOP:
 	for {
@@ -667,8 +659,10 @@ func HashATree(
 	}()*/
 	// </profiling>
 
+	wg.Add(3 + 4)
+
 	go unitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.DigestSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 4; i++ { // TODO static number 4 is wrong, right?
 		go unitHashFile(h, basenameMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
 			workerTerminated <- true
 		}, &wg)

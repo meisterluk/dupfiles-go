@@ -125,7 +125,8 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 
 	switch subcommand {
 	case report.cmd.FullCommand():
-		reportSettings, err := report.Validate()
+		var reportSettings *ReportCommand
+		reportSettings, err = report.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
@@ -134,7 +135,8 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 		exitCode, err = reportSettings.Run(w, log)
 
 	case find.cmd.FullCommand():
-		findSettings, err := find.Validate()
+		var findSettings *FindCommand
+		findSettings, err = find.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
@@ -143,7 +145,8 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 		exitCode, err = findSettings.Run(w, log)
 
 	case stats.cmd.FullCommand():
-		statsSettings, err := stats.Validate()
+		var statsSettings *StatsCommand
+		statsSettings, err = stats.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
 		}
@@ -152,6 +155,7 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 		exitCode, err = statsSettings.Run(w, log)
 
 	case digest.cmd.FullCommand():
+		var digestSettings *DigestCommand
 		digestSettings, err := digest.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
@@ -161,6 +165,7 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 		exitCode, err = digestSettings.Run(w, log)
 
 	case diff.cmd.FullCommand():
+		var diffSettings *DiffCommand
 		diffSettings, err := diff.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
@@ -170,6 +175,7 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 		exitCode, err = diffSettings.Run(w, log)
 
 	case hashAlgos.cmd.FullCommand():
+		var hashAlgosSettings *HashAlgosCommand
 		hashAlgosSettings, err := hashAlgos.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
@@ -179,6 +185,7 @@ func RunCLI(args []string, w Output, log Output) (int, bool, error) {
 		exitCode, err = hashAlgosSettings.Run(w, log)
 
 	case version.cmd.FullCommand():
+		var versionSettings *VersionCommand
 		versionSettings, err := version.Validate()
 		if err != nil {
 			kingpin.FatalUsage(err.Error())
