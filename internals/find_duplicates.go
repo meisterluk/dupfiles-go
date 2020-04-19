@@ -182,6 +182,8 @@ const MeanBytesPerLine = 119
 // MaxCountInDataStructure ⇒ "there are MaxCountInDataStructure or more matches"
 const MaxCountInDataStructure = 127
 
+// HierarchyNode is a data structure to represent a node
+// within the filesystem tree represented in a report file
 type HierarchyNode struct {
 	basename        string
 	digestFirstByte byte
@@ -190,6 +192,7 @@ type HierarchyNode struct {
 	children        []HierarchyNode
 }
 
+// Match represents equivalent nodes found in a report file
 type Match struct {
 	node       *HierarchyNode
 	reportFile string
@@ -742,6 +745,8 @@ func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- Duplicat
 	}
 }
 
+// PublishDuplicates takes matches, evaluates these matches' nodes and sends it to
+// outChan where it will be considered as duplicates.
 func PublishDuplicates(matches []Match, data *DigestData, outChan chan<- DuplicateSet, digestSize int) {
 	if len(matches) == 0 {
 		panic("internal error: matches is empty")
