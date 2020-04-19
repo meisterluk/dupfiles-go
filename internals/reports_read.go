@@ -20,6 +20,9 @@ func init() {
 	tailLineRegex = regexp.MustCompilePOSIX(`([0-9a-fA-F]+) +([A-Z]) +([0-9]+) ([^\r\n]+)`)
 }
 
+// NewReportReader creates a file descriptor for filepath
+// and returns a Report instance wrapping this file descriptor.
+// Report is a convenience interface to read a report file.
 func NewReportReader(filepath string) (*Report, error) {
 	reportFile := new(Report)
 	reportFile.FilePath = filepath
@@ -124,7 +127,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			groups := tailLineRegex.FindSubmatch(buffer[0:bufferIndex])
 			bytes, err := hex.DecodeString(string(groups[1]))
 			if err != nil {
-				return tail, fmt.Errorf(`could not decode hexdigest '%s'`, groups[1])
+				return tail, fmt.Errorf(`could not decode hexadecimal digest '%s'`, groups[1])
 			}
 
 			tail.HashValue = bytes
@@ -132,7 +135,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 
 			fileSize, err := strconv.Atoi(string(groups[3]))
 			if err != nil {
-				return tail, fmt.Errorf(`filesize is invalid: %s`, err)
+				return tail, fmt.Errorf(`filesize is invalid: '%s'`, err)
 			}
 			tail.FileSize = uint64(fileSize)
 
@@ -160,6 +163,9 @@ func (r *Report) Close() {
 	}
 }
 
+// ParseVersionNumber takes a Semantic Versioning version number
+// and parses it into an array of integers or returns an error.
+// Compare with https://semver.org/
 func ParseVersionNumber(version string) ([3]uint16, error) {
 	parts := strings.SplitN(version, ".", 3)
 	var numbers [3]uint16
@@ -176,6 +182,8 @@ func ParseVersionNumber(version string) ([3]uint16, error) {
 	return numbers, nil
 }
 
+// ParseTimestamp takes a timestamp as string and returns
+// a time.Time instance or an error
 func ParseTimestamp(timestamp string) (time.Time, error) {
 	return time.Parse("2006-01-02T15:04:05", timestamp)
 }

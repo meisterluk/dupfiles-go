@@ -14,6 +14,9 @@ import (
 	"sync/atomic"
 )
 
+// ExpectedMatchesPerNode is an internal argument for the
+// preallocation size of expected matches for one node
+// during the 'find duplicates' process.
 const ExpectedMatchesPerNode = 4
 
 /*

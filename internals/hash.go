@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+// HashAlgo is an alias for string, but specifically can only
+// be one of the identifiers for hash algorithms.
 type HashAlgo string
 
 const (

@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// Analysis contains computed data about the file system state
 type Analysis struct {
 	MaxDepth              uint64
 	TotalByteSize         uint64
@@ -33,6 +34,8 @@ func (a *Analysis) String() string {
 	)
 }
 
+// DoAnalysis runs the evaluation of the file system state.
+// The analysis is parameterized by all the other arguments given here.
 func DoAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors bool, excludeFilename []string, excludeFilenameRegexp []*regexp.Regexp, excludeTree []string) error {
 	for _, tree := range excludeTree {
 		if len(tree) > 0 && strings.HasSuffix(baseNode, tree) {
@@ -101,6 +104,7 @@ func DoAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 	return fmt.Errorf(`error for %s: %s`, baseNode, err.Error())
 }
 
+// Analyze provides the API call to perform an analysis.
 func Analyze(baseNode string, ignorePermErrors bool, excludeFilename []string, excludeFilenameRegex []string, excludeTree []string) (Analysis, error) {
 	var data Analysis
 

@@ -47,6 +47,8 @@ type DuplicateSet struct {
 	Set    []DupOutput
 }
 
+// WalkParameters are parameters configuring how the walk/traversal of a file system
+// shall be done.
 type WalkParameters struct {
 	basePath             string
 	dfs                  bool
