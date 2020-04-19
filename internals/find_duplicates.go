@@ -723,8 +723,18 @@ func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- Duplicat
 		return
 	}
 
-	// some of the parent digests match ⇒ emit all && recurse with 2-or-more clusters
-	PublishDuplicates(matches, data, outChan, digestSize)
+	// some of the parent digests match ⇒ emit all
+	anySingletons := false
+	for i := range parentClusters {
+		if len(parentClusters[i]) == 1 {
+			anySingletons = true
+		}
+	}
+	if anySingletons {
+		PublishDuplicates(matches, data, outChan, digestSize)
+	}
+
+	// recurse clusters with 2 or more nodes
 	for i := 0; i < len(parentClusters); i++ {
 		if len(parentClusters[i]) >= 2 {
 			BubbleAndPublish(parentClusters[i], data, outChan, digestSize)
