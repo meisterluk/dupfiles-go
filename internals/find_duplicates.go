@@ -532,8 +532,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 					// NOTE stopSearch used to be a simple boolean.
 					// This is not a data race, because there is one writer
 					// and an arbitrary number of readers. And it does not matter
-					// if readers read a wrong value. stopSearch just stops goroutines
-					// sooner and thus saves computation time.
+					// if readers read value true too late. stopSearch just stops
+					// goroutines sooner and thus saves computation time.
 					// Golang -race complains it is a data race. So we make it an atomic operation.
 					atomic.StoreInt32(&stopSearch, 1)
 				}

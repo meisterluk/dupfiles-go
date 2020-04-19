@@ -141,7 +141,11 @@ func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 	}
 
 	if cmd.Output == "" {
-		cmd.Output = cmd.BaseNodeName + ".fstree"
+		if cmd.BaseNodeName == "." {
+			cmd.Output = "report.fstree"
+		} else {
+			cmd.Output = cmd.BaseNodeName + ".fstree"
+		}
 	}
 
 	// validity check 2
