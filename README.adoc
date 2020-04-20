@@ -61,9 +61,9 @@ How to run
 For a comprehensive documentation, please take a look at the link:https://github.com/meisterluk/dupfiles-go/tree/master/doc[design paper].
 For quickstart examples, you have these options:
 
-1. `dupfiles report .` generates a report for the current directory. Creates a `report.fstree` file.
-2. `dupfiles report .. -o parent.fstree` generates a report for the parent directory. Creates a `parent.fstree` file.
-3. `dupfiles find report.dup parent.fstree` describes the differences between both directories. It will describe the current directory as occuring in the parent directory.
+1. `dupfiles report .` generates a report for the current directory. Creates a `report.fsr` file.
+2. `dupfiles report .. -o parent.fsr` generates a report for the parent directory. Creates a `parent.fsr` file.
+3. `dupfiles find report.dup parent.fsr` describes the differences between both directories. It will describe the current directory as occuring in the parent directory.
 
 Or you can compute the hash value of one specific directory:
 

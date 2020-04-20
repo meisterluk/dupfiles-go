@@ -142,9 +142,9 @@ func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 
 	if cmd.Output == "" {
 		if cmd.BaseNodeName == "." {
-			cmd.Output = "report.fstree"
+			cmd.Output = "report.fsr"
 		} else {
-			cmd.Output = cmd.BaseNodeName + ".fstree"
+			cmd.Output = cmd.BaseNodeName + ".fsr"
 		}
 	}
 
