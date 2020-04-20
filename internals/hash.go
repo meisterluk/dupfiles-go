@@ -27,7 +27,7 @@ const (
 	HashSHAKE256_64 HashAlgo = `shake256-64`
 )
 
-const defaultHash HashAlgo = HashCRC64
+const DefaultHash HashAlgo = HashCRC64
 
 // SupportedHashAlgorithms returns the list of supported hash algorithms.
 // The slice contains specified hash algorithm identifiers
@@ -137,7 +137,7 @@ func (h HashAlgo) Algorithm() Hash {
 	case HashSHAKE256_64:
 		return NewSHAKE256_128()
 	}
-	return defaultHash.Algorithm()
+	return DefaultHash.Algorithm()
 }
 
 // HashAlgorithmFromString returns a HashAlgo instance, give the hash algorithm's name as a string
@@ -148,7 +148,7 @@ func HashAlgorithmFromString(name string) (HashAlgo, error) {
 			return HashAlgo(algo), nil
 		}
 	}
-	return defaultHash, fmt.Errorf(`unknown hash algorithm %q`, name)
+	return DefaultHash, fmt.Errorf(`unknown hash algorithm %q`, name)
 }
 
 // Hash is a custom interface to define operations
