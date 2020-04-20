@@ -10,23 +10,39 @@ import (
 type HashAlgo string
 
 const (
-	HashCRC64       HashAlgo = `crc64`
-	HashCRC32       HashAlgo = `crc32`
-	HashFNV1_32     HashAlgo = `fnv-1-32`
-	HashFNV1_64     HashAlgo = `fnv-1-64`
-	HashFNV1_128    HashAlgo = `fnv-1-128`
-	HashFNV1A32     HashAlgo = `fnv-1a-32`
-	HashFNV1A64     HashAlgo = `fnv-1a-64`
-	HashFNV1A128    HashAlgo = `fnv-1a-128`
-	HashADLER32     HashAlgo = `adler32`
-	HashMD5         HashAlgo = `md5`
-	HashSHA1        HashAlgo = `sha-1`
-	HashSHA256      HashAlgo = `sha-256`
-	HashSHA512      HashAlgo = `sha-512`
-	HashSHA3_512    HashAlgo = `sha-3-512`
+	// HashCRC64 → Cyclic redundancy check, 64 bits output
+	HashCRC64 HashAlgo = `crc64`
+	// HashCRC32 → Cyclic redundancy check, 32 bits output
+	HashCRC32 HashAlgo = `crc32`
+	// HashFNV1_32 → Fowler–Noll–Vo hash function, 32 bits output
+	HashFNV1_32 HashAlgo = `fnv-1-32`
+	// HashFNV1_64 → Fowler–Noll–Vo hash function, 64 bits output
+	HashFNV1_64 HashAlgo = `fnv-1-64`
+	// HashFNV1_128 → Fowler–Noll–Vo hash function, 128 bits output
+	HashFNV1_128 HashAlgo = `fnv-1-128`
+	// HashFNV1A32 → Fowler–Noll–Vo 1a hash function, 32 bits output
+	HashFNV1A32 HashAlgo = `fnv-1a-32`
+	// HashFNV1A64 → Fowler–Noll–Vo 1a hash function, 64 bits output
+	HashFNV1A64 HashAlgo = `fnv-1a-64`
+	// HashFNV1A128 → Fowler–Noll–Vo 1a hash function, 128 bits output
+	HashFNV1A128 HashAlgo = `fnv-1a-128`
+	// HashADLER32 → Mark Adler's checksum algorithm, 32 bits output
+	HashADLER32 HashAlgo = `adler32`
+	// HashMD5 → Message-digest algorithm, 128 bits output
+	HashMD5 HashAlgo = `md5`
+	// HashSHA1 → hash function, 160 bits output
+	HashSHA1 HashAlgo = `sha-1`
+	// HashSHA256 → cryptographic hash function, 256 bits output
+	HashSHA256 HashAlgo = `sha-256`
+	// HashSHA512 → cryptographic hash function, 512 bits output
+	HashSHA512 HashAlgo = `sha-512`
+	// HashSHA3_512 → cryptographic hash function, 512 bits output
+	HashSHA3_512 HashAlgo = `sha-3-512`
+	// HashSHAKE256_64 → cryptographic hash function, 128 bits output
 	HashSHAKE256_64 HashAlgo = `shake256-64`
 )
 
+// DefaultHash documents the default hash algorithm that is used
 const DefaultHash HashAlgo = HashCRC64
 
 // SupportedHashAlgorithms returns the list of supported hash algorithms.

@@ -56,7 +56,7 @@ func NewCLIDigestCommand(app *kingpin.Application) *CLIDigestCommand {
 	c.DFS = c.cmd.Flag("dfs", "apply depth-first search for file system").Bool()
 	c.BFS = c.cmd.Flag("bfs", "apply breadth-first search for file system").Bool()
 	c.IgnorePermErrors = c.cmd.Flag("ignore-perm-errors", "ignore permission errors and continue traversal").Bool()
-	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", "fnv-1a-128")).Short('a').String()
+	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", string(internals.DefaultHash))).Short('a').String()
 	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
 	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
 	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings() // TODO trim any trailing/leading separators
