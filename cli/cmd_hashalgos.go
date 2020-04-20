@@ -67,6 +67,7 @@ func (c *HashAlgosCommand) Run(w Output, log Output) (int, error) {
 		return 0, nil
 	}
 
+	// TODO report default algorithm
 	type dataSet struct {
 		CheckSucceeded bool     `json:"check-result"`
 		SupHashAlgos   []string `json:"supported-hash-algorithms"`
