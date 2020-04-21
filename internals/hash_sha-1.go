@@ -21,10 +21,9 @@ func NewSHA1() *SHA1 {
 
 // Hash returns the hash state in a Hash instance
 func (c *SHA1) Hash() Hash {
-	var hash [4]byte
-	data := c.h.Sum([]byte{})
-	copy(hash[:], data)
-	return Hash32Bits(hash)
+	hash := make(Hash, 4)
+	copy(hash[:], c.h.Sum([]byte{}))
+	return hash
 }
 
 // Name returns the hash algorithm's name
@@ -36,6 +35,11 @@ func (c *SHA1) Name() string {
 // NewCopy returns a copy of this hash algorithm with freshly initialized hash state
 func (c *SHA1) NewCopy() HashAlgorithm {
 	return NewSHA1()
+}
+
+// OutputSize returns the hash output size in bytes
+func (c *SHA1) OutputSize() int {
+	return 20
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file

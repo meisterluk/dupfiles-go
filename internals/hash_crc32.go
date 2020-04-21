@@ -25,12 +25,11 @@ func NewCRC32() *CRC32 {
 // Hash returns the hash state in a Hash instance
 func (c *CRC32) Hash() Hash {
 	sum := c.h.Sum32()
-	return Hash32Bits([4]byte{
-		byte(sum >> 24),
-		byte(sum >> 16),
-		byte(sum >> 8),
-		byte(sum >> 0),
-	})
+	hash := make(Hash, 4)
+	for i := 0; i < 4; i++ {
+		hash[i] = byte(sum >> (24 - 8*i))
+	}
+	return hash
 }
 
 // Name returns the hash algorithm's name
@@ -42,6 +41,11 @@ func (c *CRC32) Name() string {
 // NewCopy returns a copy of this hash algorithm with freshly initialized hash state
 func (c *CRC32) NewCopy() HashAlgorithm {
 	return NewCRC32()
+}
+
+// OutputSize returns the hash output size in bytes
+func (c *CRC32) OutputSize() int {
+	return 4
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file

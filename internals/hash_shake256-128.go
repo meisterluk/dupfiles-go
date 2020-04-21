@@ -22,9 +22,9 @@ func NewSHAKE256_128() *SHAKE256_128 {
 
 // Hash returns the hash state in a Hash instance
 func (c *SHAKE256_128) Hash() Hash {
-	var hash [16]byte
+	hash := make(Hash, 16)
 	copy(hash[:], c.buf[:])
-	return Hash128Bits(hash)
+	return hash
 }
 
 // Name returns the hash algorithm's name
@@ -36,6 +36,11 @@ func (c *SHAKE256_128) Name() string {
 // NewCopy returns a copy of this hash algorithm with freshly initialized hash state
 func (c *SHAKE256_128) NewCopy() HashAlgorithm {
 	return NewSHAKE256_128()
+}
+
+// OutputSize returns the hash output size in bytes
+func (c *SHAKE256_128) OutputSize() int {
+	return 16
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file

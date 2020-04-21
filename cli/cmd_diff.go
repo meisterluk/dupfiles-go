@@ -160,7 +160,7 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 				continue
 			}
 
-			given := Identifier{Digest: string(tail.HashValue), BaseName: filepath.Base(tail.Path)}
+			given := Identifier{Digest: internals.Hash(tail.HashValue).Digest(), BaseName: filepath.Base(tail.Path)}
 			value, ok := diffMatches[given]
 			if ok {
 				value[t] = true

@@ -21,10 +21,9 @@ func NewMD5() *MD5 {
 
 // Hash returns the hash state in a Hash instance
 func (c *MD5) Hash() Hash {
-	var hash [16]byte
-	data := c.h.Sum([]byte{})
-	copy(hash[:], data)
-	return Hash128Bits(hash)
+	hash := make(Hash, 16)
+	copy(hash[:], c.h.Sum([]byte{}))
+	return hash
 }
 
 // Name returns the hash algorithm's name
@@ -36,6 +35,11 @@ func (c *MD5) Name() string {
 // NewCopy returns a copy of this hash algorithm with freshly initialized hash state
 func (c *MD5) NewCopy() HashAlgorithm {
 	return NewMD5()
+}
+
+// OutputSize returns the hash output size in bytes
+func (c *MD5) OutputSize() int {
+	return 16
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file

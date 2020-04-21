@@ -23,10 +23,9 @@ func NewSHA3_512() *SHA3_512 {
 
 // Hash returns the hash state in a Hash instance
 func (c *SHA3_512) Hash() Hash {
-	var hash [64]byte
-	data := c.h.Sum([]byte{})
-	copy(hash[:], data)
-	return Hash512Bits(hash)
+	hash := make(Hash, 64)
+	copy(hash[:], c.h.Sum([]byte{}))
+	return hash
 }
 
 // Name returns the hash algorithm's name
@@ -38,6 +37,11 @@ func (c *SHA3_512) Name() string {
 // NewCopy returns a copy of this hash algorithm with freshly initialized hash state
 func (c *SHA3_512) NewCopy() HashAlgorithm {
 	return NewSHA3_512()
+}
+
+// OutputSize returns the hash output size in bytes
+func (c *SHA3_512) OutputSize() int {
+	return 64
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file

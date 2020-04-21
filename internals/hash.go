@@ -1,6 +1,7 @@
 package internals
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 )
@@ -16,25 +17,12 @@ type HashAlgorithm interface {
 	Name() string
 	// return a copy of this hash algorithm with freshly initialized hash state
 	NewCopy() HashAlgorithm
+	// returns the output size in bytes
+	OutputSize() int
 	// update hash state with file content at given filepath
 	ReadFile(string) error
 	// update hash state with given bytes
 	ReadBytes([]byte) error
-}
-
-// Hash represents some hash value of a hash algorithm
-type Hash interface {
-	// hexadecimal nibble representation, called “digest”
-	Digest() string
-	// fill Hash instance with given data
-	FromData([]byte)
-	// returns the digest size in bytes
-	Size() int
-	// returns the byte array which is the raw hash value
-	ToData() []byte
-	// update this hash by xoring this hash with the other hash.
-	// NOTE the caller needs to ensure both hashes have the same size.
-	XOR(Hash)
 }
 
 // HashAlgo is an alias for uint16. Specifically it is an index
@@ -44,7 +32,10 @@ type HashAlgo uint16
 // HashAlgos contains a complete list of all hash algorithms
 type HashAlgos struct{}
 
-// abstractions finished. Now we consider the actual implementations.
+// Hash represents some hash value of a hash algorithm
+type Hash []byte
+
+// --- Abstractions finished. Now we consider the actual implementations ---
 
 const (
 	// HashCRC64 → Cyclic redundancy check, 64 bits output
@@ -145,39 +136,15 @@ func (h HashAlgos) Names() []string {
 	return list
 }
 
-// DigestSize returns the output size in bytes for a given hash algorithm.
-func (h HashAlgo) DigestSize() int {
-	switch h {
-	case HashCRC64:
-		return 8
-	case HashCRC32:
-		return 4
-	case HashFNV1_32:
-		return 4
-	case HashFNV1_64:
-		return 8
-	case HashFNV1_128:
-		return 16
-	case HashFNV1A32:
-		return 4
-	case HashFNV1A64:
-		return 8
-	case HashFNV1A128:
-		return 16
-	case HashADLER32:
-		return 4
-	case HashMD5:
-		return 16
-	case HashSHA1:
-		return 20
-	case HashSHA256:
-		return 32
-	case HashSHA512:
-		return 64
-	case HashSHA3_512:
-		return 64
-	case HashSHAKE256_64:
-		return 8
+// Digest returns the hexadecimal nibble representation of a hash value (also called “digest”)
+func (h Hash) Digest() string {
+	return hex.EncodeToString(h)
+}
+
+// XOR updates this hash value by xoring it with the other hash value.
+// NOTE the caller needs to ensure both hashes have the same size.
+func (h Hash) XOR(other Hash) {
+	for i := 0; i < len(h); i++ {
+		h[i] ^= other[i]
 	}
-	return 0
 }

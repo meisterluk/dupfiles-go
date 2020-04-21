@@ -306,7 +306,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		errChan <- err
 		return
 	}
-	digestSizeI := algo.DigestSize()
+	digestSizeI := algo.Algorithm().OutputSize()
 	digestSize := uint64(digestSizeI)
 	basenameString := "basename"
 	if !refBasenameMode {

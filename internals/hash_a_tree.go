@@ -180,7 +180,7 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 		// in basename mode, initialize the hash value with
 		// the hash value of basename
 		// as hash values of children will be XORed later on
-		hashValue := make([]byte, params.digestSize)
+		hashValue := make(Hash, params.digestSize)
 		if params.basenameMode {
 			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
@@ -191,7 +191,7 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			if err != nil {
 				return false, err
 			}
-			XORByteSlices(hashValue, hash.Hash().ToData())
+			hashValue.XOR(hash.Hash())
 		}
 
 		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: hashValue}
@@ -281,7 +281,7 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 		// in basename mode, initialize the hash value with
 		// the hash value of basename
 		// as hash values of children will be XORed later on
-		hashValue := make([]byte, params.digestSize)
+		hashValue := make(Hash, params.digestSize)
 		if params.basenameMode {
 			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
@@ -292,7 +292,7 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			if err != nil {
 				return false, err
 			}
-			XORByteSlices(hashValue, hash.Hash().ToData())
+			hashValue.XOR(hash.Hash())
 		}
 
 		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: hashValue}
@@ -367,7 +367,7 @@ func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
 
 	// for every input, hash the file and emit it to both channels
 	for fileData := range inputFile {
-		fileData.Digest = HashNode(hashAlgorithm, basenameMode, basePath, fileData).ToData()
+		fileData.Digest = HashNode(hashAlgorithm, basenameMode, basePath, fileData)
 
 		outputDir <- fileData
 		runtime.Gosched() // TODO review
@@ -664,7 +664,7 @@ func HashATree(
 
 	wg.Add(3 + 4)
 
-	go UnitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.DigestSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
+	go UnitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.Algorithm().OutputSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
 	for i := 0; i < 4; i++ { // TODO static number 4 is wrong, right?
 		go UnitHashFile(h, basenameMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
 			workerTerminated <- true

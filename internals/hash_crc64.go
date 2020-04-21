@@ -25,16 +25,11 @@ func NewCRC64() *CRC64 {
 // Hash returns the hash state in a Hash instance
 func (c *CRC64) Hash() Hash {
 	sum := c.h.Sum64()
-	return Hash64Bits([8]byte{
-		byte(sum >> 56),
-		byte(sum >> 48),
-		byte(sum >> 40),
-		byte(sum >> 32),
-		byte(sum >> 24),
-		byte(sum >> 16),
-		byte(sum >> 8),
-		byte(sum >> 0),
-	})
+	hash := make(Hash, 8)
+	for i := 0; i < 8; i++ {
+		hash[i] = byte(sum >> (56 - 8*i))
+	}
+	return hash
 }
 
 // Name returns the hash algorithm's name
@@ -46,6 +41,11 @@ func (c *CRC64) Name() string {
 // NewCopy returns a copy of this hash algorithm with freshly initialized hash state
 func (c *CRC64) NewCopy() HashAlgorithm {
 	return NewCRC64()
+}
+
+// OutputSize returns the hash output size in bytes
+func (c *CRC64) OutputSize() int {
+	return 8
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file

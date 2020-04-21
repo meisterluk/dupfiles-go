@@ -22,9 +22,9 @@ func NewFNV1a_32() *FNV1a_32 {
 
 // Hash returns the hash state in a Hash instance
 func (c *FNV1a_32) Hash() Hash {
-	var hash [4]byte
+	hash := make(Hash, 4)
 	copy(hash[:], c.h.Sum([]byte{}))
-	return Hash32Bits(hash)
+	return hash
 }
 
 // Name returns the hash algorithm's name
@@ -36,6 +36,11 @@ func (c *FNV1a_32) Name() string {
 // NewCopy returns a copy of this hash algorithm with freshly initialized hash state
 func (c *FNV1a_32) NewCopy() HashAlgorithm {
 	return NewFNV1a_32()
+}
+
+// OutputSize returns the hash output size in bytes
+func (c *FNV1a_32) OutputSize() int {
+	return 4
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file
