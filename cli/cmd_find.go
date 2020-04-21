@@ -22,6 +22,7 @@ type CLIFindCommand struct {
 	JSONOutput       *bool
 }
 
+// NewCLIFindCommand defines the flags/arguments the CLI parser is supposed to understand
 func NewCLIFindCommand(app *kingpin.Application) *CLIFindCommand {
 	c := new(CLIFindCommand)
 	c.cmd = app.Command("find", "Finds differences in report files.")
@@ -36,6 +37,8 @@ func NewCLIFindCommand(app *kingpin.Application) *CLIFindCommand {
 	return c
 }
 
+// Validate renders all arguments into a FindCommand or throws an error.
+// FindCommand provides *all* arguments to run a 'find' command.
 func (c *CLIFindCommand) Validate() (*FindCommand, error) {
 	// validity checks (check conditions which are not covered by kingpin)
 	if len(*c.Reports) == 0 {

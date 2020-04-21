@@ -22,6 +22,7 @@ type TargetPair struct {
 // https://github.com/alecthomas/kingpin/blob/b6657d9477a694/README.md#consuming-all-remaining-arguments
 type TargetPairs []TargetPair
 
+// Set adds the trailing argument provided as `value` to the set of parsed arguments
 func (t *TargetPairs) Set(value string) error {
 	if value == "" {
 		return fmt.Errorf("'%s' is not a valid base node or report file", value)
@@ -36,6 +37,7 @@ func (t *TargetPairs) Set(value string) error {
 	return nil
 }
 
+// String returns a debug representation for the arguments
 func (t *TargetPairs) String() string {
 	out := "TargetPairs{"
 	for _, target := range *t {
@@ -44,11 +46,13 @@ func (t *TargetPairs) String() string {
 	return out + "}"
 }
 
+// IsCumulative defines that TargetPairs consumes trailing arguments
 func (t *TargetPairs) IsCumulative() bool {
 	return true
 }
 
-func parseTargets(s *kingpin.ArgClause) *[]TargetPair {
+// ParseTargets creates a new type for kingpin consuming trailing arguments
+func ParseTargets(s *kingpin.ArgClause) *[]TargetPair {
 	target := new([]TargetPair)
 	s.SetValue((*TargetPairs)(target))
 	return target
@@ -63,17 +67,20 @@ type CLIDiffCommand struct {
 	Help         *bool
 }
 
+// NewCLIDiffCommand defines the flags/arguments the CLI parser is supposed to understand
 func NewCLIDiffCommand(app *kingpin.Application) *CLIDiffCommand {
 	c := new(CLIDiffCommand)
 	c.cmd = app.Command("diff", "Show difference between node children in two or more report files.")
 
-	c.Targets = parseTargets(c.cmd.Arg("targets", "two or more [{base node} {report}] pairs to consider"))
+	c.Targets = ParseTargets(c.cmd.Arg("targets", "two or more [{base node} {report}] pairs to consider"))
 	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
 	c.JSONOutput = c.cmd.Flag("json", "return output as JSON, not as plain text").Bool()
 
 	return c
 }
 
+// Validate renders all arguments into a DiffCommand or throws an error.
+// DiffCommand provides *all* arguments to run a 'diff' command.
 func (c *CLIDiffCommand) Validate() (*DiffCommand, error) {
 	// migrate CLIDiffCommand to DiffCommand
 	cmd := new(DiffCommand)

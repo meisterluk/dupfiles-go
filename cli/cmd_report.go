@@ -33,6 +33,7 @@ type CLIReportCommand struct {
 	Help                 *bool
 }
 
+// NewCLIReportCommand defines the flags/arguments the CLI parser is supposed to understand
 func NewCLIReportCommand(app *kingpin.Application) *CLIReportCommand {
 	c := new(CLIReportCommand)
 	c.cmd = app.Command("report", "Generates a report file.")
@@ -60,6 +61,8 @@ func NewCLIReportCommand(app *kingpin.Application) *CLIReportCommand {
 	return c
 }
 
+// Validate renders all arguments into a ReportCommand or throws an error.
+// ReportCommand provides *all* arguments to run a 'report' command.
 func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {

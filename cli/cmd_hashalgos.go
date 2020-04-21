@@ -17,6 +17,7 @@ type CLIHashAlgosCommand struct {
 	Help         *bool
 }
 
+// NewCLIHashAlgosCommand defines the flags/arguments the CLI parser is supposed to understand
 func NewCLIHashAlgosCommand(app *kingpin.Application) *CLIHashAlgosCommand {
 	c := new(CLIHashAlgosCommand)
 	c.cmd = app.Command("hashalgos", "List supported hash algorithms.")
@@ -28,6 +29,8 @@ func NewCLIHashAlgosCommand(app *kingpin.Application) *CLIHashAlgosCommand {
 	return c
 }
 
+// Validate renders all arguments into a HashAlgosCommand or throws an error.
+// HashAlgosCommand provides *all* arguments to run a 'hashalgos' command.
 func (c *CLIHashAlgosCommand) Validate() (*HashAlgosCommand, error) {
 	// migrate CLIHashAlgosCommand to HashAlgosCommand
 	cmd := new(HashAlgosCommand)

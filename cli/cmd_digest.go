@@ -47,6 +47,7 @@ type CLIDigestCommand struct {
 	Help                 *bool
 }
 
+// NewCLIDigestCommand defines the flags/arguments the CLI parser is supposed to understand
 func NewCLIDigestCommand(app *kingpin.Application) *CLIDigestCommand {
 	c := new(CLIDigestCommand)
 	c.cmd = app.Command("digest", "Give the digest of an individual node.")
@@ -70,6 +71,8 @@ func NewCLIDigestCommand(app *kingpin.Application) *CLIDigestCommand {
 	return c
 }
 
+// Validate renders all arguments into a DigestCommand or throws an error.
+// DigestCommand provides *all* arguments to run a 'digest' command.
 func (c *CLIDigestCommand) Validate() (*DigestCommand, error) {
 	// validity checks (check conditions not covered by kingpin)
 	if *c.BaseNode == "" {

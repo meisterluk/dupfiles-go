@@ -20,6 +20,7 @@ type CLIStatsCommand struct {
 	Help         *bool
 }
 
+// NewCLIStatsCommand defines the flags/arguments the CLI parser is supposed to understand
 func NewCLIStatsCommand(app *kingpin.Application) *CLIStatsCommand {
 	c := new(CLIStatsCommand)
 	c.cmd = app.Command("stats", "Prints some statistics about filesystem nodes based on a report.")
@@ -32,6 +33,8 @@ func NewCLIStatsCommand(app *kingpin.Application) *CLIStatsCommand {
 	return c
 }
 
+// Validate renders all arguments into a StatsCommand or throws an error.
+// StatsCommand provides *all* arguments to run a 'stats' command.
 func (c *CLIStatsCommand) Validate() (*StatsCommand, error) {
 	// validity checks (check conditions that are not covered by kingpin)
 	if *c.Report == "" {
