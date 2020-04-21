@@ -8,8 +8,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// JSONSuccessResult is a struct used to serialize JSON output
-type JSONSuccessResult struct {
+// VersionJSONResult is a struct used to serialize JSON output
+type VersionJSONResult struct {
 	Version     string `json:"version"`
 	ReleaseDate string `json:"release-date"`
 }
@@ -74,7 +74,7 @@ func (c *VersionCommand) Run(w Output, log Output) (int, error) {
 	versionString := fmt.Sprintf("%d.%d.%d", v1.VERSION_MAJOR, v1.VERSION_MINOR, v1.VERSION_PATCH)
 
 	if c.JSONOutput {
-		data := JSONSuccessResult{Version: versionString, ReleaseDate: v1.RELEASE_DATE}
+		data := VersionJSONResult{Version: versionString, ReleaseDate: v1.RELEASE_DATE}
 		b, err := json.Marshal(&data)
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)

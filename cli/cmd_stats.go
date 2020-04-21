@@ -10,6 +10,46 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+// SizeEntry represents a Top10MaxSizeFiles entry
+type SizeEntry struct {
+	Path string `json:"path"`
+	Size uint64 `json:"size"`
+}
+
+// BriefReportStatistics contains statistics collected from
+// a report file and only requires single-pass parsing and
+// constant memory to evaluate those statistics
+type BriefReportStatistics struct {
+	HeadVersion         [3]uint16     `json:"head-version"`
+	HeadTimestamp       time.Time     `json:"head-timestamp"`
+	HeadHashAlgorithm   string        `json:"head-hash-algorithm"`
+	HeadBasenameMode    bool          `json:"head-basename-mode"`
+	HeadNodeName        string        `json:"head-node-name"`
+	HeadBasePath        string        `json:"head-base-path"`
+	NumUNIXDeviceFile   uint32        `json:"count-unix-device"`
+	NumDirectory        uint32        `json:"count-directory"`
+	NumRegularFile      uint32        `json:"count-regular-file"`
+	NumLink             uint32        `json:"count-link"`
+	NumFIFOPipe         uint32        `json:"count-fifo-pipe"`
+	NumUNIXDomainSocket uint32        `json:"count-unix-socket"`
+	MaxDepth            uint16        `json:"fs-depth-max"`
+	TotalSize           uint64        `json:"fs-size-total"`
+	Top10MaxSizeFiles   [10]SizeEntry `json:"files-size-max-top10"`
+}
+
+// LongReportStatistics contains statistics collected from
+// a report file and requires linear time and linear memory
+// (or more) to evaluate those statistics
+type LongReportStatistics struct {
+	// {average, median, min, max} number of children in a folder?
+}
+
+// StatsJSONResult is a struct used to serialize JSON output
+type StatsJSONResult struct {
+	Brief BriefReportStatistics `json:"brief"`
+	Long  LongReportStatistics  `json:"long"`
+}
+
 // CLIStatsCommand defines the CLI arguments as kingpin requires them
 type CLIStatsCommand struct {
 	cmd          *kingpin.CmdClause
@@ -81,38 +121,6 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 		}
 		w.Println(string(b))
 		return 0, nil
-	}
-
-	type sizeEntry struct {
-		Path string `json:"path"`
-		Size uint64 `json:"size"`
-	}
-
-	// BriefReportStatistics contains statistics collected from
-	// a report file and only requires single-pass parsing and
-	// constant memory to evaluate those statistics
-	type BriefReportStatistics struct {
-		HeadVersion         [3]uint16     `json:"head-version"`
-		HeadTimestamp       time.Time     `json:"head-timestamp"`
-		HeadHashAlgorithm   string        `json:"head-hash-algorithm"`
-		HeadBasenameMode    bool          `json:"head-basename-mode"`
-		HeadNodeName        string        `json:"head-node-name"`
-		HeadBasePath        string        `json:"head-base-path"`
-		NumUNIXDeviceFile   uint32        `json:"count-unix-device"`
-		NumDirectory        uint32        `json:"count-directory"`
-		NumRegularFile      uint32        `json:"count-regular-file"`
-		NumLink             uint32        `json:"count-link"`
-		NumFIFOPipe         uint32        `json:"count-fifo-pipe"`
-		NumUNIXDomainSocket uint32        `json:"count-unix-socket"`
-		MaxDepth            uint16        `json:"fs-depth-max"`
-		TotalSize           uint64        `json:"fs-size-total"`
-		Top10MaxSizeFiles   [10]sizeEntry `json:"files-size-max-top10"`
-	}
-	// BriefReportStatistics contains statistics collected from
-	// a report file and requires linear time and linear memory
-	// to evaluate those statistics
-	type LongReportStatistics struct {
-		// {average, median, min, max} number of children in a folder?
 	}
 
 	rep, err := internals.NewReportReader(c.Report)
@@ -193,11 +201,7 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 		// which data will be evaluated here?
 	}
 
-	type resultJSON struct {
-		Brief BriefReportStatistics `json:"brief"`
-		Long  LongReportStatistics  `json:"long"`
-	}
-	var out resultJSON
+	var out StatsJSONResult
 	out.Brief = briefStats
 	out.Long = longStats
 

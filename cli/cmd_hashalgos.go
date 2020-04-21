@@ -8,6 +8,13 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+// HashAlgosJSONResult is a struct used to serialize JSON output
+// TODO report default algorithm
+type HashAlgosJSONResult struct {
+	CheckSucceeded bool     `json:"check-result"`
+	SupHashAlgos   []string `json:"supported-hash-algorithms"`
+}
+
 // CLIHashAlgosCommand defines the CLI arguments as kingpin requires them
 type CLIHashAlgosCommand struct {
 	cmd          *kingpin.CmdClause
@@ -70,13 +77,7 @@ func (c *HashAlgosCommand) Run(w Output, log Output) (int, error) {
 		return 0, nil
 	}
 
-	// TODO report default algorithm
-	type dataSet struct {
-		CheckSucceeded bool     `json:"check-result"`
-		SupHashAlgos   []string `json:"supported-hash-algorithms"`
-	}
-
-	data := dataSet{
+	data := HashAlgosJSONResult{
 		CheckSucceeded: false,
 		SupHashAlgos:   internals.HashAlgos{}.Names(),
 	}

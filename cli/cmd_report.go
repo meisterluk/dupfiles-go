@@ -10,6 +10,11 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+// ReportJSONResult is a struct used to serialize JSON output
+type ReportJSONResult struct {
+	Message string `json:"message"`
+}
+
 // CLIReportCommand defines the CLI arguments as kingpin requires them
 type CLIReportCommand struct {
 	cmd                  *kingpin.CmdClause
@@ -250,11 +255,7 @@ func (c *ReportCommand) Run(w Output, log Output) (int, error) {
 
 	msg := fmt.Sprintf(`Done. File "%s" written`, c.Output)
 	if c.JSONOutput {
-		type output struct {
-			Message string `json:"message"`
-		}
-
-		data := output{Message: msg}
+		data := ReportJSONResult{Message: msg}
 		jsonRepr, err := json.Marshal(&data)
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)

@@ -11,6 +11,13 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+// FindJSONResult is a struct used to serialize JSON output
+type FindJSONResult struct {
+	LineNo     uint64 `json:"lineno"`
+	ReportFile string `json:"report"`
+	Path       string `json:"path"`
+}
+
 // CLIFindCommand defined the CLI arguments as kingpin requires them
 type CLIFindCommand struct {
 	cmd              *kingpin.CmdClause
@@ -118,18 +125,13 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 	go func() {
 		// duplicates goroutine
 		defer wg.Done()
-		type jsonOut struct {
-			LineNo     uint64 `json:"lineno"`
-			ReportFile string `json:"report"`
-			Path       string `json:"path"`
-		}
 
 		if c.JSONOutput {
 			for entry := range dupEntries {
 				// prepare data structure
-				entries := make([]jsonOut, 0, len(entry.Set))
+				entries := make([]FindJSONResult, 0, len(entry.Set))
 				for _, equiv := range entry.Set {
-					entries = append(entries, jsonOut{
+					entries = append(entries, FindJSONResult{
 						LineNo:     equiv.Lineno,
 						ReportFile: equiv.ReportFile,
 						Path:       equiv.Path,

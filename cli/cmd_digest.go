@@ -10,6 +10,11 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+// DigestJSONResult is a struct used to serialize JSON output
+type DigestJSONResult struct {
+	Digest string `json:"digest"`
+}
+
 // DigestCommand defines the CLI command parameters
 type DigestCommand struct {
 	BaseNode             string   `json:"basenode"`
@@ -206,11 +211,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 		}
 
 		if c.JSONOutput {
-			type jsonResult struct {
-				Digest string `json:"digest"`
-			}
-
-			data := jsonResult{Digest: hashValue.Digest()}
+			data := DigestJSONResult{Digest: hashValue.Digest()}
 			jsonRepr, err := json.Marshal(&data)
 			if err != nil {
 				return 6, fmt.Errorf(resultJSONErrMsg, err)
@@ -238,11 +239,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 	})
 
 	if c.JSONOutput {
-		type jsonResult struct {
-			Digest string `json:"digest"`
-		}
-
-		data := jsonResult{Digest: hashValue.Digest()}
+		data := DigestJSONResult{Digest: hashValue.Digest()}
 		jsonRepr, err := json.Marshal(&data)
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)

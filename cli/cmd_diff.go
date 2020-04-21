@@ -11,6 +11,18 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+// DiffJSONObject represents one difference match of the diff command
+type DiffJSONObject struct {
+	Basename string   `json:"basename"`
+	Digest   string   `json:"digest"`
+	OccursIn []string `json:"occurs-in"`
+}
+
+// DiffJSONResult is a struct used to serialize JSON output
+type DiffJSONResult struct {
+	Children []DiffJSONObject `json:"children"`
+}
+
 // TargetPair contains the basenode and its associated report file.
 // Pairs of these constitute the arguments you need to provide for subcommand diff.
 type TargetPair struct {
@@ -180,16 +192,7 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 	}
 
 	if c.JSONOutput {
-		type jsonObject struct {
-			Basename string   `json:"basename"`
-			Digest   string   `json:"digest"`
-			OccursIn []string `json:"occurs-in"`
-		}
-		type jsonResult struct {
-			Children []jsonObject `json:"children"`
-		}
-
-		data := jsonResult{Children: make([]jsonObject, 0, len(diffMatches))}
+		data := DiffJSONResult{Children: make([]DiffJSONObject, 0, len(diffMatches))}
 		for id, diffMatch := range diffMatches {
 			occurences := make([]string, 0, len(c.Targets))
 			for i, matches := range diffMatch {
@@ -197,7 +200,7 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 					occurences = append(occurences, c.Targets[i].Report)
 				}
 			}
-			data.Children = append(data.Children, jsonObject{
+			data.Children = append(data.Children, DiffJSONObject{
 				Basename: id.BaseName,
 				Digest:   hex.EncodeToString([]byte(id.Digest)),
 				OccursIn: occurences,
