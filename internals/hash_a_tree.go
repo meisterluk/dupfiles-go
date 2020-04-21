@@ -69,11 +69,6 @@ type WalkParameters struct {
 func HashNode(hashAlgorithm HashAlgo, basenameMode bool, basePath string, data FileData) Hash {
 	hash := hashAlgorithm.Algorithm().NewCopy()
 
-	if basenameMode {
-		hash.ReadBytes([]byte(filepath.Base(data.Path)))
-		hash.ReadBytes([]byte{31}) // U+001F unit separator
-	}
-
 	switch {
 	case data.Type == 'D':
 		return hash.Hash()
@@ -368,6 +363,13 @@ func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
 	// for every input, hash the file and emit it to both channels
 	for fileData := range inputFile {
 		fileData.HashValue = HashNode(hashAlgorithm, basenameMode, basePath, fileData)
+
+		if basenameMode {
+			algo := hashAlgorithm.Algorithm()
+			algo.ReadBytes([]byte(filepath.Base(fileData.Path)))
+			h := algo.Hash()
+			Hash(fileData.HashValue).XOR(h)
+		}
 
 		outputDir <- fileData
 		runtime.Gosched() // TODO review
