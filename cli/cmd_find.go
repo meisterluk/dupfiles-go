@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -148,7 +147,7 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 		} else {
 			for entry := range dupEntries {
 				//log.Println("<duplicates>")
-				out := hex.EncodeToString(entry.Digest) + "\n"
+				out := internals.Hash(entry.HashValue).Digest() + "\n"
 				for _, s := range entry.Set {
 					out += `  ` + s.ReportFile + " " + string(filepath.Separator) + " " + s.Path + "\n"
 				}

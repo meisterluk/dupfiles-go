@@ -1,7 +1,6 @@
 package internals
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -20,13 +19,13 @@ import (
 const ExpectedMatchesPerNode = 4
 
 /*
-// lineToDigestFound is a simple routine to extract data from a tail line
+// lineToHashValueFound is a simple routine to extract data from a tail line
 // without instantiating an entire parser. line must not contain a line feed
 // or carriage return.
-func lineToDigestFound(line string, lineNo uint64) (digestFound, error) {
+func lineToHashValueFound(line string, lineNo uint64) (hashValueFound, error) {
 	i := 0
 
-	// read hexadecimal digest
+	// read hexadecimal hash value
 	for i < len(line) && line[i] != ' ' {
 		i++
 	}
@@ -37,7 +36,7 @@ func lineToDigestFound(line string, lineNo uint64) (digestFound, error) {
 
 	// read node type
 	if i == len(line) {
-		return digestFound{}, fmt.Errorf(`line '%s' does not look like a tail line`, line)
+		return hashValueFound{}, fmt.Errorf(`line '%s' does not look like a tail line`, line)
 	}
 	nodeType := line[i]
 	i++
@@ -51,21 +50,21 @@ func lineToDigestFound(line string, lineNo uint64) (digestFound, error) {
 		i++
 	}
 	if sizeStart == i {
-		return digestFound{}, fmt.Errorf(`line '%s' does not look like a tail line`, line)
+		return hashValueFound{}, fmt.Errorf(`line '%s' does not look like a tail line`, line)
 	}
 	fileSize, err := strconv.ParseInt(line[sizeStart:i], 10, 64)
 	if err != nil {
-		return digestFound{}, fmt.Errorf(`file size is not an integer in line '%s'`, line)
+		return hashValueFound{}, fmt.Errorf(`file size is not an integer in line '%s'`, line)
 	}
 	i++
 
 	// return line data
 	digest, err := hex.DecodeString(hexDigest)
 	if err != nil {
-		return digestFound{}, fmt.Errorf(`could not decode hash value of line '%s'`, line)
+		return hashValueFound{}, fmt.Errorf(`could not decode hash value of line '%s'`, line)
 	}
 
-	return digestFound{
+	return hashValueFound{
 		0,
 		lineNo,
 		ReportTailLine{
@@ -77,15 +76,15 @@ func lineToDigestFound(line string, lineNo uint64) (digestFound, error) {
 	}, nil
 }
 
-type digestFound struct {
+type hashValueFound struct {
 	ReportIndex int
 	LineNo      uint64
 	ReportTailLine
 }
 
-func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]digestFound, error) {
-	results := make([]digestFound, 0, 32)
-	hexDigestIndex := 0
+func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]hashValueFound, error) {
+	results := make([]hashValueFound, 0, 32)
+	hexhashValueIndex := 0
 	lineNumber := uint64(1)
 
 	var buffer [3072]byte
@@ -93,7 +92,7 @@ func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]digestFound, erro
 	// read from the beginning of the file
 	_, err := fd.Seek(0, 0)
 	if err != nil {
-		return []digestFound{}, err
+		return []hashValueFound{}, err
 	}
 
 	for {
@@ -103,7 +102,7 @@ func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]digestFound, erro
 			break
 		}
 		if err != nil {
-			return []digestFound{}, err
+			return []hashValueFound{}, err
 		}
 
 		// search digest in buffer/view
@@ -111,20 +110,20 @@ func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]digestFound, erro
 
 		for offset, c := range view {
 			if c == '\n' {
-				hexDigestIndex = 0
+				hexhashValueIndex = 0
 				lineNumber++
 			}
-			if c != hexDigest[hexDigestIndex] {
-				hexDigestIndex = 0
+			if c != hexDigest[hexhashValueIndex] {
+				hexhashValueIndex = 0
 				continue
 			}
 
-			hexDigestIndex++
-			if hexDigestIndex != len(hexDigest) {
+			hexhashValueIndex++
+			if hexhashValueIndex != len(hexDigest) {
 				continue
 			}
 
-			hexDigestIndex = 0
+			hexhashValueIndex = 0
 
 			// At this point, we found the digest string in the text file.
 			// So we seek to the start of the line and read tail line data.
@@ -132,13 +131,13 @@ func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]digestFound, erro
 			// seek to beginning of line
 			_, err := fd.Seek(-int64(n)+int64(offset)-int64(len(hexDigest))+1, 1)
 			if err != nil {
-				return []digestFound{}, err
+				return []hashValueFound{}, err
 			}
 
 			// read line
 			n2, err := fd.Read(buffer[:])
 			if err != nil {
-				return []digestFound{}, err
+				return []hashValueFound{}, err
 			}
 
 			line := buffer[0:n2]
@@ -152,10 +151,10 @@ func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]digestFound, erro
 			}
 			if !eolFound {
 				// TODO not implemented yet: handle separately, do not throw error
-				return []digestFound{}, fmt.Errorf(`line uses more than 2048 bytes - internal error`)
+				return []hashValueFound{}, fmt.Errorf(`line uses more than 2048 bytes - internal error`)
 			}
 
-			result, err := lineToDigestFound(string(line), lineNumber)
+			result, err := lineToHashValueFound(string(line), lineNumber)
 			if err != nil {
 				log.Println(err)
 			} else {
@@ -165,7 +164,7 @@ func findDigestMatchesInFile(fd *os.File, hexDigest string) ([]digestFound, erro
 			// continue reading file after this line
 			_, err = fd.Seek(-int64(n2)+int64(len(line)), 1)
 			if err != nil {
-				return []digestFound{}, fmt.Errorf(`searching %s in %s: %s`, hexDigest, fd.Name(), err.Error())
+				return []hashValueFound{}, fmt.Errorf(`searching %s in %s: %s`, hexDigest, fd.Name(), err.Error())
 			}
 			break // must not continue inside modified view/buffer
 		}
@@ -188,11 +187,11 @@ const MaxCountInDataStructure = 127
 // HierarchyNode is a data structure to represent a node
 // within the filesystem tree represented in a report file
 type HierarchyNode struct {
-	basename        string
-	digestFirstByte byte
-	digestIndex     uint // NOTE first bit is used to store whether "digestIndex" and "digestFirstByte" have been initialized
-	parent          *HierarchyNode
-	children        []HierarchyNode
+	basename           string
+	hashValueFirstByte byte
+	hashValueIndex     uint // NOTE first bit is used to store whether "hashValueIndex" and "hashValueFirstByte" have been initialized
+	parent             *HierarchyNode
+	children           []HierarchyNode
 }
 
 // Match represents equivalent nodes found in a report file
@@ -306,30 +305,30 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		errChan <- err
 		return
 	}
-	digestSizeI := algo.Algorithm().OutputSize()
-	digestSize := uint64(digestSizeI)
+	hashValueSizeI := algo.Algorithm().OutputSize()
+	hashValueSize := uint64(hashValueSizeI)
 	basenameString := "basename"
 	if !refBasenameMode {
 		basenameString = "empty"
 	}
 	log.Printf("Step 1 of 4 finished: metadata is consistent: version %d, hash algo %s, and %s mode\n", refVersion, refHashAlgorithm, basenameString)
 
-	// Step 2: read all digests into a byte array called data.
-	//   The byte array is a sequence of items with values (digest suffix ‖ disabled bit ‖ dups count).
-	//   digest suffix: digest byte array without the first byte (we already dispatched with it, right?)
+	// Step 2: read all hash values into a byte array called data.
+	//   The byte array is a sequence of items with values (hash value suffix ‖ disabled bit ‖ dups count).
+	//   hash value suffix: hash value byte array without the first byte (we already dispatched with it, right?)
 	//   disabled bit: one bit used later to mark nodes as “already processed”
-	//   dups count: 7 bits to count the number of duplicates for this digest (0b111_1111 means “127 or more”)
-	// NOTE "count dups" is "digest occurences - 1"
+	//   dups count: 7 bits to count the number of duplicates for this hash value (0b111_1111 means “127 or more”)
+	// NOTE "count dups" is "hash value occurences - 1"
 	estimatedNumEntries := totalFileSize / uint64(MeanBytesPerLine)
 	if estimatedNumEntries < 2 {
 		estimatedNumEntries = 2
 	}
-	memoryRequired := estimatedNumEntries * (digestSize + 1)
+	memoryRequired := estimatedNumEntries * (hashValueSize + 1)
 	log.Printf("Step 2 of 4 started: reading all digests into memory\n")
 	// TODO it is not difficult to get the actual number of entries, right? ⇒ accurate data/estimate
-	log.Printf("total file size %d bytes ⇒ estimated %s of main memory required\n", digestSize, HumanReadableBytes(memoryRequired))
+	log.Printf("total file size %d bytes ⇒ estimated %s of main memory required\n", hashValueSize, HumanReadableBytes(memoryRequired))
 
-	data := NewDigestData(digestSizeI, int(estimatedNumEntries>>8))
+	data := NewDigestData(hashValueSizeI, int(estimatedNumEntries>>8))
 	entriesFinished := uint64(0)
 
 	percentages := [9]uint64{
@@ -381,7 +380,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	}
 	for i := 0; i < 256; i++ {
 		// test some invariant
-		if len(data.data[i])%(digestSizeI-1+1) != 0 {
+		if len(data.data[i])%(hashValueSizeI-1+1) != 0 {
 			panic("internal error: digest storage broken")
 		}
 	}
@@ -440,10 +439,10 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 					currentNode = &currentNode.children[len(currentNode.children)-1]
 				}
 			}
-			currentNode.digestFirstByte = tail.HashValue[0]
-			// we use the first bit to store whether "digestIndex" and "digestFirstByte" have been properly initialized.
+			currentNode.hashValueFirstByte = tail.HashValue[0]
+			// we use the first bit to store whether "hashValueIndex" and "hashValueFirstByte" have been properly initialized.
 			// this way we detect whether one node is missing in the report file.
-			currentNode.digestIndex = uint(index<<1) | 1
+			currentNode.hashValueIndex = uint(index<<1) | 1
 		}
 		rep.Close()
 		trees = append(trees, rootNode)
@@ -454,7 +453,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// verify that all nodes have been initialized (i.e. have digest in file)
 	var verifyTree func(*HierarchyNode, *DigestData, string)
 	verifyTree = func(node *HierarchyNode, data *DigestData, reportFile string) {
-		if node.digestIndex&1 == 0 {
+		if node.hashValueIndex&1 == 0 {
 			// determine full path
 			fullPath := ""
 			currentNode := node
@@ -490,9 +489,9 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		}
 		log.Printf("%s%s (parent %p) %s and %d child(ren) and %d duplicates\n",
 			identation, basename, node.parent,
-			hex.EncodeToString(data.Digest(node.digestFirstByte, int(node.digestIndex>>1))),
+			data.Hash(node.hashValueFirstByte, int(node.hashValueIndex>>1)).Digest(),
 			len(node.children),
-			data.Duplicates(node.digestFirstByte, int(node.digestIndex>>1)),
+			data.Duplicates(node.hashValueFirstByte, int(node.hashValueIndex>>1)),
 		)
 		for c := 0; c < len(node.children); c++ {
 			dumpTree(&node.children[c], data, indent+1)
@@ -511,24 +510,24 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// we visit *every node* in DFS
 	var wg sync.WaitGroup
 	for t, tree := range trees {
-		for refNode := range TraverseTree(tree, data, digestSizeI) {
+		for refNode := range TraverseTree(tree, data, hashValueSizeI) {
 			// find all nodes with matching digest
 			var stopSearch int32
-			expectedDuplicates := data.Duplicates(refNode.digestFirstByte, int(refNode.digestIndex>>1))
+			expectedDuplicates := data.Duplicates(refNode.hashValueFirstByte, int(refNode.hashValueIndex>>1))
 
 			if expectedDuplicates == 0 {
 				continue
 			}
 
-			// declare this digest as disabled
-			data.Disable(refNode.digestFirstByte, int(refNode.digestIndex>>1))
+			// declare this hash value as disabled
+			data.Disable(refNode.hashValueFirstByte, int(refNode.hashValueIndex>>1))
 
 			// collect matches
 			matches := make([]Match, 1, ExpectedMatchesPerNode)
 			matches[0].node = refNode
 			matches[0].reportFile = reportFiles[t]
 
-			for matchData := range MatchTree(trees, reportFiles, refNode, data, digestSizeI, &stopSearch) {
+			for matchData := range MatchTree(trees, reportFiles, refNode, data, hashValueSizeI, &stopSearch) {
 				if refNode == matchData.node {
 					continue
 				}
@@ -546,7 +545,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			}
 
 			// TODO remove debug
-			//log.Printf("found %d matches, expected %d, for %s with %s%s\n", len(matches), expectedDuplicates+1, refNode.basename, hex.EncodeToString([]byte{refNode.digestFirstByte}), hex.EncodeToString(data[refNode.digestFirstByte][int(refNode.digestIndex>>1)*digestSizeI:int(refNode.digestIndex>>1)*digestSizeI+digestSizeI-1]))
+			//log.Printf("found %d matches, expected %d, for %s with %s%s\n", len(matches), expectedDuplicates+1, refNode.basename, hex.EncodeToString([]byte{refNode.hashValueFirstByte}), hex.EncodeToString(data[refNode.hashValueFirstByte][int(refNode.hashValueIndex>>1)*hashValueSizeI:int(refNode.hashValueIndex>>1)*hashValueSizeI+hashValueSizeI-1]))
 
 			if len(matches) <= 1 {
 				times := fmt.Sprintf("%d", expectedDuplicates+1)
@@ -554,7 +553,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 					times = "many"
 				}
 				panic(fmt.Sprintf("internal error: digest %s occurs %s times but search routine found only %d",
-					hex.EncodeToString(data.Digest(refNode.digestFirstByte, int(refNode.digestIndex>>1))),
+					data.Hash(refNode.hashValueFirstByte, int(refNode.hashValueIndex>>1)).Digest(),
 					times,
 					len(matches),
 				))
@@ -564,8 +563,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			wg.Add(1)
 			go func(refNode *HierarchyNode) {
 				defer wg.Done()
-				BubbleAndPublish(matches, data, outChan, digestSizeI)
-				// TODO mark digest of refNode as disabled such that these nodes are not traversed twice
+				BubbleAndPublish(matches, data, outChan, hashValueSizeI)
+				// TODO mark hash value of refNode as disabled such that these nodes are not traversed twice
 			}(refNode)
 
 			// <profiling>
@@ -594,7 +593,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 // TraverseTree traverses the given tree defined by the root node
 // and emit all nodes starting with the leaves.
-func TraverseTree(rootNode *HierarchyNode, data *DigestData, digestSizeI int) <-chan *HierarchyNode {
+func TraverseTree(rootNode *HierarchyNode, data *DigestData, hashValueSizeI int) <-chan *HierarchyNode {
 	outChan := make(chan *HierarchyNode)
 
 	var recur func(*HierarchyNode)
@@ -602,8 +601,8 @@ func TraverseTree(rootNode *HierarchyNode, data *DigestData, digestSizeI int) <-
 		for i := range node.children {
 			child := &node.children[i]
 
-			// do not traverse it, if this digest was already analyzed
-			disabled := data.Disabled(child.digestFirstByte, int(child.digestIndex>>1))
+			// do not traverse it, if this hash value was already analyzed
+			disabled := data.Disabled(child.hashValueFirstByte, int(child.hashValueIndex>>1))
 			if disabled {
 				continue
 			}
@@ -618,7 +617,7 @@ func TraverseTree(rootNode *HierarchyNode, data *DigestData, digestSizeI int) <-
 		defer close(outChan)
 		recur(rootNode)
 
-		disabledRoot := data.Disabled(rootNode.digestFirstByte, int(rootNode.digestIndex>>1))
+		disabledRoot := data.Disabled(rootNode.hashValueFirstByte, int(rootNode.hashValueIndex>>1))
 		if !disabledRoot {
 			outChan <- rootNode
 		}
@@ -629,26 +628,26 @@ func TraverseTree(rootNode *HierarchyNode, data *DigestData, digestSizeI int) <-
 // MatchTree traverses all trees and emits any equivalent nodes of refNode.
 // NOTE this function traverses all trees simultaneously.
 // NOTE this function also returns refNode.
-func MatchTree(trees []*HierarchyNode, reportFiles []string, refNode *HierarchyNode, data *DigestData, digestSize int, stop *int32) <-chan Match {
+func MatchTree(trees []*HierarchyNode, reportFiles []string, refNode *HierarchyNode, data *DigestData, hashValueSize int, stop *int32) <-chan Match {
 	var wg sync.WaitGroup
 	outChan := make(chan Match)
 
 	nodesEqual := func(a, b *HierarchyNode) bool {
-		if a.digestFirstByte == b.digestFirstByte {
-			rDigestSuffix := data.DigestSuffix(b.digestFirstByte, int(b.digestIndex>>1))
-			cDigestSuffix := data.DigestSuffix(a.digestFirstByte, int(a.digestIndex>>1))
+		if a.hashValueFirstByte == b.hashValueFirstByte {
+			rHashSuffix := data.HashValueSuffix(b.hashValueFirstByte, int(b.hashValueIndex>>1))
+			cHashSuffix := data.HashValueSuffix(a.hashValueFirstByte, int(a.hashValueIndex>>1))
 
-			if len(rDigestSuffix) != len(cDigestSuffix) {
-				panic(fmt.Sprintf("internal error: len(rDigestSuffix) != len(cDigestSuffix); %d != %d", len(rDigestSuffix), len(cDigestSuffix)))
+			if len(rHashSuffix) != len(cHashSuffix) {
+				panic(fmt.Sprintf("internal error: len(rHashSuffix) != len(cHashSuffix); %d != %d", len(rHashSuffix), len(cHashSuffix)))
 			}
-			if EqByteSlices(rDigestSuffix, cDigestSuffix) {
+			if EqByteSlices(rHashSuffix, cHashSuffix) {
 				return true
 			}
 		}
 		return false
 	}
 
-	go func(trees []*HierarchyNode, refNode *HierarchyNode, data *DigestData, digestSize int, stop *int32, outChan chan<- Match) {
+	go func(trees []*HierarchyNode, refNode *HierarchyNode, data *DigestData, hashValueSize int, stop *int32, outChan chan<- Match) {
 		defer close(outChan)
 
 		var recur func(*HierarchyNode, string)
@@ -685,7 +684,7 @@ func MatchTree(trees []*HierarchyNode, reportFiles []string, refNode *HierarchyN
 		}
 
 		wg.Wait()
-	}(trees, refNode, data, digestSize, stop, outChan)
+	}(trees, refNode, data, hashValueSize, stop, outChan)
 
 	return outChan
 }
@@ -694,7 +693,7 @@ func MatchTree(trees []*HierarchyNode, reportFiles []string, refNode *HierarchyN
 // Bubbling is the act of exchanging matches with their parents if at least two matches
 // share the same parent. They are collected in clusters and the algorithm is called
 // recursively. A cluster is a set of nodes sharing the same digest.
-func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- DuplicateSet, digestSize int) {
+func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- DuplicateSet, hashValueSize int) {
 	if len(matches) < 2 {
 		panic("internal error: there must be at least 2 matches")
 	}
@@ -706,7 +705,7 @@ func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- Duplicat
 
 		added := false
 		for _, cluster := range parentClusters {
-			if cluster[0].node.digestFirstByte == parent.digestFirstByte && cluster[0].node.digestIndex&1 == 1 && cluster[0].node.digestIndex == parent.digestIndex {
+			if cluster[0].node.hashValueFirstByte == parent.hashValueFirstByte && cluster[0].node.hashValueIndex&1 == 1 && cluster[0].node.hashValueIndex == parent.hashValueIndex {
 				cluster = append(cluster, Match{reportFile: matchData.reportFile, node: parent})
 				added = true
 				allAreSingletons = false
@@ -725,7 +724,7 @@ func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- Duplicat
 
 	// none of the parent digests match ⇒ emit all && abort bubbling
 	if allAreSingletons {
-		PublishDuplicates(matches, data, outChan, digestSize)
+		PublishDuplicates(matches, data, outChan, hashValueSize)
 		return
 	}
 
@@ -737,26 +736,26 @@ func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- Duplicat
 		}
 	}
 	if anySingletons {
-		PublishDuplicates(matches, data, outChan, digestSize)
+		PublishDuplicates(matches, data, outChan, hashValueSize)
 	}
 
 	// recurse clusters with 2 or more nodes
 	for i := 0; i < len(parentClusters); i++ {
 		if len(parentClusters[i]) >= 2 {
-			BubbleAndPublish(parentClusters[i], data, outChan, digestSize)
+			BubbleAndPublish(parentClusters[i], data, outChan, hashValueSize)
 		}
 	}
 }
 
 // PublishDuplicates takes matches, evaluates these matches' nodes and sends it to
 // outChan where it will be considered as duplicates.
-func PublishDuplicates(matches []Match, data *DigestData, outChan chan<- DuplicateSet, digestSize int) {
+func PublishDuplicates(matches []Match, data *DigestData, outChan chan<- DuplicateSet, hashValueSize int) {
 	if len(matches) == 0 {
 		panic("internal error: matches is empty")
 	}
 
 	// collect digest
-	digest := data.Digest(matches[1].node.digestFirstByte, int(matches[1].node.digestIndex>>1)) // TODO why “[1]” though?
+	hashValue := data.Hash(matches[1].node.hashValueFirstByte, int(matches[1].node.hashValueIndex>>1)) // TODO why “[1]” though?
 
 	outputs := make([]DupOutput, 0, len(matches))
 	for _, matchData := range matches {
@@ -776,7 +775,7 @@ func PublishDuplicates(matches []Match, data *DigestData, outChan chan<- Duplica
 	}
 
 	outChan <- DuplicateSet{
-		Digest: digest,
-		Set:    outputs, // TODO: fetch data from file again?
+		HashValue: hashValue,
+		Set:       outputs, // TODO: fetch data from file again?
 	}
 }

@@ -20,17 +20,17 @@ import (
 
 // FileData contains attributes of non-directories
 type FileData struct {
-	Path   string
-	Type   byte
-	Size   uint64
-	Digest []byte
+	Path      string
+	Type      byte
+	Size      uint64
+	HashValue []byte
 }
 
 // DirData contains attributes of directories
 type DirData struct {
 	Path           string
 	EntriesMissing int
-	Digest         []byte
+	HashValue      []byte
 	Size           uint16
 }
 
@@ -43,8 +43,8 @@ type DupOutput struct {
 
 // DuplicateSet gives the set of information returned to the user if a match was found
 type DuplicateSet struct {
-	Digest []byte
-	Set    []DupOutput
+	HashValue []byte
+	Set       []DupOutput
 }
 
 // WalkParameters are parameters configuring how the walk/traversal of a file system
@@ -60,11 +60,11 @@ type WalkParameters struct {
 	basenameMode         bool
 	fileOut              chan<- FileData
 	dirOut               chan<- DirData
-	digestSize           int
+	hashValueSize        int
 	shallStop            *bool
 }
 
-// HashNode generates the hash digest of a given file (at join(basePath, data.Path)).
+// HashNode generates the hash value of a given file (at join(basePath, data.Path)).
 // For directories, only the filename is hashed on basename mode.
 func HashNode(hashAlgorithm HashAlgo, basenameMode bool, basePath string, data FileData) Hash {
 	hash := hashAlgorithm.Algorithm().NewCopy()
@@ -180,7 +180,7 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 		// in basename mode, initialize the hash value with
 		// the hash value of basename
 		// as hash values of children will be XORed later on
-		hashValue := make(Hash, params.digestSize)
+		hashValue := make(Hash, params.hashValueSize)
 		if params.basenameMode {
 			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
@@ -194,9 +194,9 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			hashValue.XOR(hash.Hash())
 		}
 
-		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: hashValue}
+		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), HashValue: hashValue}
 	} else {
-		params.fileOut <- FileData{Path: nodePath, Type: DetermineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
+		params.fileOut <- FileData{Path: nodePath, Type: DetermineNodeType(node), Size: uint64(node.Size()), HashValue: make([]byte, params.hashValueSize)}
 	}
 
 	runtime.Gosched() // TODO review
@@ -281,7 +281,7 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 		// in basename mode, initialize the hash value with
 		// the hash value of basename
 		// as hash values of children will be XORed later on
-		hashValue := make(Hash, params.digestSize)
+		hashValue := make(Hash, params.hashValueSize)
 		if params.basenameMode {
 			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
@@ -295,9 +295,9 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			hashValue.XOR(hash.Hash())
 		}
 
-		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: hashValue}
+		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), HashValue: hashValue}
 	} else {
-		params.fileOut <- FileData{Path: nodePath, Type: DetermineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
+		params.fileOut <- FileData{Path: nodePath, Type: DetermineNodeType(node), Size: uint64(node.Size()), HashValue: make([]byte, params.hashValueSize)}
 	}
 
 	runtime.Gosched() // TODO review
@@ -309,7 +309,7 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 // If any error occurs, [only] the first error will be written to errChan. Otherwise nil is written to the error channel.
 // Thus errChan also serves as signal to indicate when {fileOut, dirOut} channel won't receive any more data.
 // NOTE this function defers recover. Run it as goroutine.
-func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, basenameMode bool, digestSize int,
+func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, basenameMode bool, hashValueSize int,
 	fileOut chan<- FileData, dirOut chan<- DirData,
 	errChan chan error, shallStop *bool, wg *sync.WaitGroup,
 ) {
@@ -332,7 +332,7 @@ func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string
 	walkParams := WalkParameters{
 		basePath: node, dfs: dfs, ignorePermErrors: ignorePermErrors, excludeBasename: excludeBasename,
 		hashAlgorithm: hashAlgorithm, excludeBasenameRegex: regexes, excludeTree: excludeTree,
-		basenameMode: basenameMode, fileOut: fileOut, dirOut: dirOut, digestSize: digestSize,
+		basenameMode: basenameMode, fileOut: fileOut, dirOut: dirOut, hashValueSize: hashValueSize,
 		shallStop: shallStop,
 	}
 
@@ -355,7 +355,7 @@ func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string
 }
 
 // UnitHashFile computes the hash of the non-directory it receives over the inputFile channel
-// and sends the annotated digest to both; UnitHashDir and UnitFinal.
+// and sends the annotated hash value to both; UnitHashDir and UnitFinal.
 // NOTE this function defers recover. Run it as goroutine.
 func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
 	inputFile <-chan FileData, outputDir chan<- FileData, outputFinal chan<- FileData,
@@ -367,7 +367,7 @@ func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
 
 	// for every input, hash the file and emit it to both channels
 	for fileData := range inputFile {
-		fileData.Digest = HashNode(hashAlgorithm, basenameMode, basePath, fileData)
+		fileData.HashValue = HashNode(hashAlgorithm, basenameMode, basePath, fileData)
 
 		outputDir <- fileData
 		runtime.Gosched() // TODO review
@@ -395,7 +395,7 @@ func UnitHashDir(hashAlgorithm HashAlgo,
 	// Hashes are propagated to the parent directory of a file,
 	// but not more than 1 parent-level. This function is used
 	// internally to propagate hashes further up.
-	propagate := func(path string, digest []byte) {
+	propagate := func(path string, hashValue []byte) {
 		//log.Printf("propagation: node '%s'…\n", path) // TODO
 		node := path
 		if node == "" {
@@ -407,7 +407,7 @@ func UnitHashDir(hashAlgorithm HashAlgo,
 			node = Dir(node)
 			//log.Printf("propagation: iterate with '%s'\n", node) // TODO
 
-			// Case 1: digest makes node complete ⇒ propagate further up
+			// Case 1: hash value makes node complete ⇒ propagate further up
 			// Case 2: node is still incomplete ⇒ stop propagation
 			// Case 3: node does not exist ⇒ stop propagation, we need to wait for the actual EntriesMissing value via UnitWalk
 
@@ -416,13 +416,13 @@ func UnitHashDir(hashAlgorithm HashAlgo,
 			for i := 0; i < len(incompleteDir); i++ {
 				if node == incompleteDir[i].Path {
 					found = true
-					XORByteSlices(incompleteDir[i].Digest, digest)
+					XORByteSlices(incompleteDir[i].HashValue, hashValue)
 					incompleteDir[i].EntriesMissing--
 
 					// emit directory hash, if all hashes were provided
 					if incompleteDir[i].EntriesMissing == 0 {
 						// Case 1
-						digest = incompleteDir[i].Digest
+						hashValue = incompleteDir[i].HashValue
 						outputFinal <- incompleteDir[i]
 						if i+1 >= len(incompleteDir) {
 							incompleteDir = incompleteDir[:i]
@@ -449,15 +449,15 @@ func UnitHashDir(hashAlgorithm HashAlgo,
 
 			// Case 3
 			if !found {
-				d := make([]byte, len(digest))
-				copy(d, digest)
+				d := make([]byte, len(hashValue))
+				copy(d, hashValue)
 				incompleteDir = append(incompleteDir, DirData{
 					Path: node,
 					// -1 is the initial value. It will be decremented with each arriving entry.
 					// Eventually the actual number of required entries is added + 1.
-					// This makes EntriesMissing=0 once the digest is ready.
+					// This makes EntriesMissing=0 once the hash value is ready.
 					EntriesMissing: -1 - 1,
-					Digest:         d,
+					HashValue:      d,
 				})
 				//log.Printf("propagation: entry created for '%s' - stopping propagation\n", node) // TODO
 				break PROP
@@ -477,9 +477,9 @@ LOOP:
 				//log.Printf("receiving initial data for directory '%s': entries expected = %v\n", dirData.Path, dirData.EntriesMissing) // TODO
 				for i := 0; i < len(incompleteDir); i++ {
 					if dirData.Path == incompleteDir[i].Path {
-						XORByteSlices(incompleteDir[i].Digest, dirData.Digest)
+						XORByteSlices(incompleteDir[i].HashValue, dirData.HashValue)
 						// why "+ 1"? This is abused to distinguish value 0 from -1.
-						// value EntriesMissing=0 means "all entries have been found && digest is finished".
+						// value EntriesMissing=0 means "all entries have been found && hash value is finished".
 						// value EntriesMissing=-1 means "this entry was just initialized".
 						incompleteDir[i].EntriesMissing += dirData.EntriesMissing + 1
 						incompleteDir[i].Size = dirData.Size
@@ -488,13 +488,13 @@ LOOP:
 						// emit directory hash, if all file hashes were provided
 						if incompleteDir[i].EntriesMissing == 0 {
 							outputFinal <- incompleteDir[i]
-							digest := incompleteDir[i].Digest
+							hashValue := incompleteDir[i].HashValue
 							if i+1 >= len(incompleteDir) {
 								incompleteDir = incompleteDir[:i]
 							} else {
 								incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
 							}
-							propagate(dirData.Path, digest)
+							propagate(dirData.Path, hashValue)
 						}
 
 						continue LOOP
@@ -504,7 +504,7 @@ LOOP:
 				if dirData.EntriesMissing == 0 {
 					//log.Printf("EntriesMissing of '%s' = %d (added and finished, via dir)\n", dirData.Path, dirData.EntriesMissing) // TODO
 					outputFinal <- dirData
-					propagate(dirData.Path, dirData.Digest)
+					propagate(dirData.Path, dirData.HashValue)
 				} else {
 					//log.Printf("EntriesMissing of '%s' = %d (added, via dir)\n", dirData.Path, dirData.EntriesMissing) // TODO
 					incompleteDir = append(incompleteDir, dirData)
@@ -518,12 +518,12 @@ LOOP:
 
 		case fileData, ok := <-inputFile:
 			if ok {
-				//log.Printf("receiving digest for file '%s'\n", fileData.Path) // TODO
+				//log.Printf("receiving hash value for file '%s'\n", fileData.Path) // TODO
 				directory := Dir(fileData.Path)
 
 				for i := 0; i < len(incompleteDir); i++ {
 					if directory == incompleteDir[i].Path {
-						XORByteSlices(incompleteDir[i].Digest, fileData.Digest)
+						XORByteSlices(incompleteDir[i].HashValue, fileData.HashValue)
 						incompleteDir[i].EntriesMissing--
 						//log.Printf("EntriesMissing of '%s' = %d (via file)\n", incompleteDir[i].Path, incompleteDir[i].EntriesMissing) // TODO
 
@@ -531,13 +531,13 @@ LOOP:
 						if incompleteDir[i].EntriesMissing == 0 {
 							//log.Printf("publishing '%s'\n", incompleteDir[i].Path) // TODO
 							outputFinal <- incompleteDir[i]
-							digest := incompleteDir[i].Digest
+							hashValue := incompleteDir[i].HashValue
 							if i+1 >= len(incompleteDir) {
 								incompleteDir = incompleteDir[:i]
 							} else {
 								incompleteDir = append(incompleteDir[:i], incompleteDir[i+1:]...)
 							}
-							propagate(directory, digest)
+							propagate(directory, hashValue)
 						}
 
 						continue LOOP
@@ -545,15 +545,15 @@ LOOP:
 				}
 
 				//log.Printf("EntriesMissing of '%s' = -2 (added, via file)\n", directory) // TODO
-				d := make([]byte, len(fileData.Digest))
-				copy(d, fileData.Digest)
+				d := make([]byte, len(fileData.HashValue))
+				copy(d, fileData.HashValue)
 				incompleteDir = append(incompleteDir, DirData{
 					Path: directory,
 					// -1 is the initial value. It will be decremented with each arriving entry.
 					// Eventually the actual number of required entries is added + 1.
-					// This makes EntriesMissing=0 once the digest is ready.
+					// This makes EntriesMissing=0 once the hash value is ready.
 					EntriesMissing: -1 - 1,
-					Digest:         d,
+					HashValue:      d,
 				})
 			} else {
 				fileFinished = true
@@ -576,7 +576,7 @@ LOOP:
 	close(outputFinal)
 }
 
-// UnitFinal receives digests through the two channels inputFile and inputDir.
+// UnitFinal receives hash values through the two channels inputFile and inputDir.
 // It converts entries to ReportTailLines and forwards them to the outputEntry channel.
 func UnitFinal(inputFile <-chan FileData, inputDir <-chan DirData, outputEntry chan<- ReportTailLine, errChan chan<- error, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -588,7 +588,7 @@ LOOP:
 		case fileData, ok := <-inputFile:
 			if ok {
 				outputEntry <- ReportTailLine{
-					HashValue: fileData.Digest,
+					HashValue: fileData.HashValue,
 					NodeType:  fileData.Type,
 					FileSize:  fileData.Size,
 					Path:      fileData.Path,
@@ -603,7 +603,7 @@ LOOP:
 		case dirData, ok := <-inputDir:
 			if ok {
 				outputEntry <- ReportTailLine{
-					HashValue: dirData.Digest,
+					HashValue: dirData.HashValue,
 					NodeType:  'D',
 					FileSize:  uint64(dirData.Size),
 					Path:      dirData.Path,

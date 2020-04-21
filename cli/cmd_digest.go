@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -183,10 +182,17 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 		)
 
 		// read value from evaluation
-		digest := make([]byte, 128) // 128 bytes = 1024 bits digest output
+		maxHashValueSize := 0
+		for h := 0; h < internals.CountHashAlgos; h++ {
+			outSize := internals.HashAlgo(h).Algorithm().OutputSize()
+			if outSize > maxHashValueSize {
+				maxHashValueSize = outSize
+			}
+		}
+		hashValue := make(internals.Hash, maxHashValueSize)
 		for tailline := range output {
 			if tailline.Path == "." {
-				copy(digest, tailline.HashValue)
+				copy(hashValue, tailline.HashValue)
 			}
 		}
 
@@ -201,7 +207,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 				Digest string `json:"digest"`
 			}
 
-			data := jsonResult{Digest: hex.EncodeToString(digest)}
+			data := jsonResult{Digest: hashValue.Digest()}
 			jsonRepr, err := json.Marshal(&data)
 			if err != nil {
 				return 6, fmt.Errorf(resultJSONErrMsg, err)
@@ -209,7 +215,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 
 			w.Println(string(jsonRepr))
 		} else {
-			w.Println(hex.EncodeToString(digest))
+			w.Println(hashValue.Digest())
 		}
 
 		return 0, nil
@@ -222,10 +228,10 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 		return 8, err
 	}
 	hashValue := internals.HashNode(algo, c.BasenameMode, filepath.Dir(c.BaseNode), internals.FileData{
-		Path:   filepath.Base(c.BaseNode),
-		Type:   internals.DetermineNodeType(fileinfo),
-		Size:   uint64(fileinfo.Size()),
-		Digest: []byte{},
+		Path:      filepath.Base(c.BaseNode),
+		Type:      internals.DetermineNodeType(fileinfo),
+		Size:      uint64(fileinfo.Size()),
+		HashValue: []byte{},
 	})
 
 	if c.JSONOutput {

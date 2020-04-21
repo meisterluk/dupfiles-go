@@ -2,12 +2,12 @@ package internals
 
 import "fmt"
 
-// This module implements a map {digest byte array: uint16} for any output digest size.
-// The abstraction is given by a DigestMap interface implemented for all output digest sizes.
+// This module implements a map {hash byte array: uint16} for any output hash size.
+// The abstraction is given by a MapOfHashes interface implemented for all output hash sizes.
 // This module exists only because of a lack of generics in Go.
 
-// DigestMap provides an interface to handle a map {digest: uint16}
-type DigestMap interface {
+// MapOfHashes provides an interface to handle a map {hash: uint16}
+type MapOfHashes interface {
 	Increment([]byte)
 	Count([]byte) uint16
 }
@@ -19,8 +19,8 @@ type list160 struct{ data map[[160]byte]uint16 }
 type list256 struct{ data map[[256]byte]uint16 }
 type list512 struct{ data map[[512]byte]uint16 }
 
-func newDigestMap(digestSize int, initAlloc int) (DigestMap, error) {
-	switch digestSize {
+func newMapOfHashes(hashValueSize int, initAlloc int) (MapOfHashes, error) {
+	switch hashValueSize {
 	case 32:
 		l := new(list32)
 		l.data = make(map[[32]byte]uint16, initAlloc)
@@ -46,78 +46,78 @@ func newDigestMap(digestSize int, initAlloc int) (DigestMap, error) {
 		l.data = make(map[[512]byte]uint16, initAlloc)
 		return l, nil
 	default:
-		return new(list512), fmt.Errorf(`unknown digest size %d - internal error`, digestSize)
+		return new(list512), fmt.Errorf(`unknown hash value size %d - internal error`, hashValueSize)
 	}
 }
 
-func (l *list32) Increment(digest []byte) {
+func (l *list32) Increment(hashValue []byte) {
 	var key [32]byte
-	copy(key[:], digest[0:32])
+	copy(key[:], hashValue[0:32])
 	l.data[key]++
 }
 
-func (l *list32) Count(digest []byte) uint16 {
+func (l *list32) Count(hashValue []byte) uint16 {
 	var key [32]byte
-	copy(key[:], digest[0:32])
+	copy(key[:], hashValue[0:32])
 	return l.data[key]
 }
 
-func (l *list64) Increment(digest []byte) {
+func (l *list64) Increment(hashValue []byte) {
 	var key [64]byte
-	copy(key[:], digest[0:64])
+	copy(key[:], hashValue[0:64])
 	l.data[key]++
 }
 
-func (l *list64) Count(digest []byte) uint16 {
+func (l *list64) Count(hashValue []byte) uint16 {
 	var key [64]byte
-	copy(key[:], digest[0:64])
+	copy(key[:], hashValue[0:64])
 	return l.data[key]
 }
 
-func (l *list128) Increment(digest []byte) {
+func (l *list128) Increment(hashValue []byte) {
 	var key [128]byte
-	copy(key[:], digest[0:128])
+	copy(key[:], hashValue[0:128])
 	l.data[key]++
 }
 
-func (l *list128) Count(digest []byte) uint16 {
+func (l *list128) Count(hashValue []byte) uint16 {
 	var key [128]byte
-	copy(key[:], digest[0:128])
+	copy(key[:], hashValue[0:128])
 	return l.data[key]
 }
 
-func (l *list160) Increment(digest []byte) {
+func (l *list160) Increment(hashValue []byte) {
 	var key [160]byte
-	copy(key[:], digest[0:160])
+	copy(key[:], hashValue[0:160])
 	l.data[key]++
 }
 
-func (l *list160) Count(digest []byte) uint16 {
+func (l *list160) Count(hashValue []byte) uint16 {
 	var key [160]byte
-	copy(key[:], digest[0:160])
+	copy(key[:], hashValue[0:160])
 	return l.data[key]
 }
 
-func (l *list256) Increment(digest []byte) {
+func (l *list256) Increment(hashValue []byte) {
 	var key [256]byte
-	copy(key[:], digest[0:256])
+	copy(key[:], hashValue[0:256])
 	l.data[key]++
 }
 
-func (l *list256) Count(digest []byte) uint16 {
+func (l *list256) Count(hashValue []byte) uint16 {
 	var key [256]byte
-	copy(key[:], digest[0:256])
+	copy(key[:], hashValue[0:256])
 	return l.data[key]
 }
 
-func (l *list512) Increment(digest []byte) {
+func (l *list512) Increment(hashValue []byte) {
 	var key [512]byte
-	copy(key[:], digest[0:512])
+	copy(key[:], hashValue[0:512])
 	l.data[key]++
 }
 
-func (l *list512) Count(digest []byte) uint16 {
+func (l *list512) Count(hashValue []byte) uint16 {
 	var key [512]byte
-	copy(key[:], digest[0:512])
+	copy(key[:], hashValue[0:512])
 	return l.data[key]
 }

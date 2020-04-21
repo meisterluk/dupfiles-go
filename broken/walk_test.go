@@ -62,7 +62,7 @@ func createTestFiles(t *testing.T) string {
 func runWalk(t *testing.T, dfs bool) []string {
 	// setup
 	var wg sync.WaitGroup
-	digestSize := 2
+	hashValueSize := 2
 	fileChan := make(chan FileData)
 	dirChan := make(chan DirData)
 	errChan := make(chan error)
@@ -104,7 +104,7 @@ func runWalk(t *testing.T, dfs bool) []string {
 	}()
 
 	// walk
-	unitWalk(base, dfs, false, []string{}, []string{}, []string{}, digestSize, fileChan, dirChan, errChan, &shallStop, &wg)
+	unitWalk(base, dfs, false, []string{}, []string{}, []string{}, hashValueSize, fileChan, dirChan, errChan, &shallStop, &wg)
 	wg.Wait()
 	go func() { close(errChan) }()
 	err, ok := <-errChan

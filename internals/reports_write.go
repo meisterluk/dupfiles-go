@@ -40,9 +40,9 @@ func (r *Report) HeadLine(hashAlgorithm string, basenameMode bool, nodeName, bas
 }
 
 // TailLine writes a tailline to the report given the parameters provided
-func (r *Report) TailLine(digest []byte, nodeType byte, fileSize uint64, path string) error {
+func (r *Report) TailLine(hashValue []byte, nodeType byte, fileSize uint64, path string) error {
 	_, err := fmt.Fprintf(r.File, "%s %c %d %s\n",
-		hex.EncodeToString(digest),
+		hex.EncodeToString(hashValue),
 		nodeType, fileSize, ByteEncode(path))
 	return err
 }
