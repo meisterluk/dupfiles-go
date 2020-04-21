@@ -37,6 +37,8 @@ func NewCLIReportCommand(app *kingpin.Application) *CLIReportCommand {
 	c := new(CLIReportCommand)
 	c.cmd = app.Command("report", "Generates a report file.")
 
+	defaultHashAlgo := internals.HashAlgos{}.Default().Algorithm().Name()
+
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
 	c.BaseNodeName = c.cmd.Flag("basenode-name", "human-readable base node name in head line").Short('b').String()
 	c.Overwrite = c.cmd.Flag("overwrite", "if filepath already exists, overwrite it without asking").Bool()
@@ -45,7 +47,7 @@ func NewCLIReportCommand(app *kingpin.Application) *CLIReportCommand {
 	c.DFS = c.cmd.Flag("dfs", "apply depth-first search for file system").Bool()
 	c.BFS = c.cmd.Flag("bfs", "apply breadth-first search for file system").Bool()
 	c.IgnorePermErrors = c.cmd.Flag("ignore-perm-errors", "ignore permission errors and continue traversal").Bool()
-	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", string(internals.DefaultHash))).Short('a').String()
+	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", defaultHashAlgo)).Short('a').String()
 	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
 	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
 	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings() // TODO trim any trailing/leading separators

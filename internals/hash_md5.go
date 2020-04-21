@@ -2,7 +2,6 @@ package internals
 
 import (
 	"crypto/md5"
-	"encoding/hex"
 	"hash"
 	"io"
 	"os"
@@ -20,9 +19,23 @@ func NewMD5() *MD5 {
 	return c
 }
 
-// Size returns the number of bytes of the hashsum
-func (c *MD5) Size() int {
-	return c.h.Size()
+// Hash returns the hash state in a Hash instance
+func (c *MD5) Hash() Hash {
+	var hash [16]byte
+	data := c.h.Sum([]byte{})
+	copy(hash[:], data)
+	return Hash128Bits(hash)
+}
+
+// Name returns the hash algorithm's name
+// in accordance with the dupfiles design document
+func (c *MD5) Name() string {
+	return "md5"
+}
+
+// NewCopy returns a copy of this hash algorithm with freshly initialized hash state
+func (c *MD5) NewCopy() HashAlgorithm {
+	return NewMD5()
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file
@@ -47,26 +60,4 @@ func (c *MD5) ReadFile(filepath string) error {
 func (c *MD5) ReadBytes(data []byte) error {
 	_, err := c.h.Write(data)
 	return err
-}
-
-// Reset resets the hash state to its initial state.
-// After this call functions like `ReadFile` or `ReadBytes` can be called.
-func (c *MD5) Reset() {
-	c.h.Reset()
-}
-
-// Digest returns the digest resulting from the hash state
-func (c *MD5) Digest() []byte {
-	return c.h.Sum([]byte{})
-}
-
-// HexDigest returns the hash state digest encoded in a hexadecimal string
-func (c *MD5) HexDigest() string {
-	return hex.EncodeToString(c.Digest())
-}
-
-// Name returns the hash algorithm's name
-// in accordance with the dupfiles design document
-func (c *MD5) Name() string {
-	return "md5"
 }

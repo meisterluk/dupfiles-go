@@ -2,7 +2,6 @@ package internals
 
 import (
 	"crypto/sha1"
-	"encoding/hex"
 	"hash"
 	"io"
 	"os"
@@ -20,9 +19,23 @@ func NewSHA1() *SHA1 {
 	return c
 }
 
-// Size returns the number of bytes of the hashsum
-func (c *SHA1) Size() int {
-	return c.h.Size()
+// Hash returns the hash state in a Hash instance
+func (c *SHA1) Hash() Hash {
+	var hash [4]byte
+	data := c.h.Sum([]byte{})
+	copy(hash[:], data)
+	return Hash32Bits(hash)
+}
+
+// Name returns the hash algorithm's name
+// in accordance with the dupfiles design document
+func (c *SHA1) Name() string {
+	return "sha-1"
+}
+
+// NewCopy returns a copy of this hash algorithm with freshly initialized hash state
+func (c *SHA1) NewCopy() HashAlgorithm {
+	return NewSHA1()
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file
@@ -47,26 +60,4 @@ func (c *SHA1) ReadFile(filepath string) error {
 func (c *SHA1) ReadBytes(data []byte) error {
 	_, err := c.h.Write(data)
 	return err
-}
-
-// Reset resets the hash state to its initial state.
-// After this call functions like `ReadFile` or `ReadBytes` can be called.
-func (c *SHA1) Reset() {
-	c.h.Reset()
-}
-
-// Digest returns the digest resulting from the hash state
-func (c *SHA1) Digest() []byte {
-	return c.h.Sum([]byte{})
-}
-
-// HexDigest returns the hash state digest encoded in a hexadecimal string
-func (c *SHA1) HexDigest() string {
-	return hex.EncodeToString(c.Digest())
-}
-
-// Name returns the hash algorithm's name
-// in accordance with the dupfiles design document
-func (c *SHA1) Name() string {
-	return "sha-1"
 }

@@ -65,6 +65,7 @@ func (c *VersionCommand) Run(w Output, log Output) (int, error) {
 	versionString := fmt.Sprintf("%d.%d.%d", v1.VERSION_MAJOR, v1.VERSION_MINOR, v1.VERSION_PATCH)
 
 	if c.JSONOutput {
+		// TODO include release date
 		type jsonResult struct {
 			Version string `json:"version"`
 		}

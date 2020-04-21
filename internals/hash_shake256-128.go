@@ -1,7 +1,6 @@
 package internals
 
 import (
-	"encoding/hex"
 	"io"
 	"os"
 
@@ -21,9 +20,22 @@ func NewSHAKE256_128() *SHAKE256_128 {
 	return c
 }
 
-// Size returns the number of bytes of the hashsum
-func (c *SHAKE256_128) Size() int {
-	return 128
+// Hash returns the hash state in a Hash instance
+func (c *SHAKE256_128) Hash() Hash {
+	var hash [16]byte
+	copy(hash[:], c.buf[:])
+	return Hash128Bits(hash)
+}
+
+// Name returns the hash algorithm's name
+// in accordance with the dupfiles design document
+func (c *SHAKE256_128) Name() string {
+	return "shake256-128"
+}
+
+// NewCopy returns a copy of this hash algorithm with freshly initialized hash state
+func (c *SHAKE256_128) NewCopy() HashAlgorithm {
+	return NewSHAKE256_128()
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file
@@ -54,26 +66,4 @@ func (c *SHAKE256_128) ReadBytes(data []byte) error {
 
 	_, err = c.h.Read(c.buf[:])
 	return err
-}
-
-// Reset resets the hash state to its initial state.
-// After this call functions like `ReadFile` or `ReadBytes` can be called.
-func (c *SHAKE256_128) Reset() {
-	c.h.Reset()
-}
-
-// Digest returns the digest resulting from the hash state
-func (c *SHAKE256_128) Digest() []byte {
-	return c.buf[:]
-}
-
-// HexDigest returns the hash state digest encoded in a hexadecimal string
-func (c *SHAKE256_128) HexDigest() string {
-	return hex.EncodeToString(c.buf[:])
-}
-
-// Name returns the hash algorithm's name
-// in accordance with the dupfiles design document
-func (c *SHAKE256_128) Name() string {
-	return "shake256-128"
 }

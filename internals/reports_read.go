@@ -101,7 +101,8 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			}
 
 			hashAlgorithm := strings.ToLower(string(groups[4]))
-			if !isValidHashAlgo(hashAlgorithm) {
+			_, err = HashAlgos{}.FromString(hashAlgorithm)
+			if err != nil {
 				return tail, fmt.Errorf(`Unsupported hash algorithm '%s' specified`, hashAlgorithm)
 			}
 

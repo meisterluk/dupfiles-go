@@ -66,8 +66,8 @@ type WalkParameters struct {
 
 // HashNode generates the hash digest of a given file (at join(basePath, data.Path)).
 // For directories, only the filename is hashed on basename mode.
-func HashNode(hash Hash, basenameMode bool, basePath string, data FileData) []byte {
-	hash.Reset()
+func HashNode(hashAlgorithm HashAlgo, basenameMode bool, basePath string, data FileData) Hash {
+	hash := hashAlgorithm.Algorithm().NewCopy()
 
 	if basenameMode {
 		hash.ReadBytes([]byte(filepath.Base(data.Path)))
@@ -76,27 +76,27 @@ func HashNode(hash Hash, basenameMode bool, basePath string, data FileData) []by
 
 	switch {
 	case data.Type == 'D':
-		return hash.Digest()
+		return hash.Hash()
 	case data.Type == 'C':
 		hash.ReadBytes([]byte(`device file`))
-		return hash.Digest()
+		return hash.Hash()
 	case data.Type == 'F':
 		hash.ReadFile(filepath.Join(basePath, data.Path))
-		return hash.Digest()
+		return hash.Hash()
 	case data.Type == 'L':
 		target, err := os.Readlink(filepath.Join(basePath, data.Path))
 		if err != nil {
-			return hash.Digest()
+			return hash.Hash()
 		}
 		hash.ReadBytes([]byte(`link to `))
 		hash.ReadBytes([]byte(target))
-		return hash.Digest()
+		return hash.Hash()
 	case data.Type == 'P':
 		hash.ReadBytes([]byte(`FIFO pipe`))
-		return hash.Digest()
+		return hash.Hash()
 	case data.Type == 'S':
 		hash.ReadBytes([]byte(`UNIX domain socket`))
-		return hash.Digest()
+		return hash.Hash()
 	default:
 		panic(fmt.Sprintf("internal error - unknown type %c", data.Type))
 	}
@@ -177,10 +177,12 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			}
 		}
 
-		// in basename mode, XOR digest of directory with digest of basename
-		digest := make([]byte, params.digestSize)
+		// in basename mode, initialize the hash value with
+		// the hash value of basename
+		// as hash values of children will be XORed later on
+		hashValue := make([]byte, params.digestSize)
 		if params.basenameMode {
-			h, err := HashAlgorithmFromString(params.hashAlgorithm)
+			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
 				return false, err
 			}
@@ -189,10 +191,10 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			if err != nil {
 				return false, err
 			}
-			XORByteSlices(digest, hash.Digest())
+			XORByteSlices(hashValue, hash.Hash().ToData())
 		}
 
-		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: digest}
+		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: hashValue}
 	} else {
 		params.fileOut <- FileData{Path: nodePath, Type: DetermineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
 	}
@@ -276,10 +278,12 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			}
 		}
 
-		// in basename mode, XOR digest of directory with digest of basename
-		digest := make([]byte, params.digestSize)
+		// in basename mode, initialize the hash value with
+		// the hash value of basename
+		// as hash values of children will be XORed later on
+		hashValue := make([]byte, params.digestSize)
 		if params.basenameMode {
-			h, err := HashAlgorithmFromString(params.hashAlgorithm)
+			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
 				return false, err
 			}
@@ -288,10 +292,10 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			if err != nil {
 				return false, err
 			}
-			XORByteSlices(digest, hash.Digest())
+			XORByteSlices(hashValue, hash.Hash().ToData())
 		}
 
-		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: digest}
+		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), Digest: hashValue}
 	} else {
 		params.fileOut <- FileData{Path: nodePath, Type: DetermineNodeType(node), Size: uint64(node.Size()), Digest: make([]byte, params.digestSize)}
 	}
@@ -361,12 +365,9 @@ func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
 	defer wg.Done()
 	defer done()
 
-	// initialize a hash instance
-	hash := hashAlgorithm.Algorithm()
-
 	// for every input, hash the file and emit it to both channels
 	for fileData := range inputFile {
-		fileData.Digest = HashNode(hash, basenameMode, basePath, fileData)
+		fileData.Digest = HashNode(hashAlgorithm, basenameMode, basePath, fileData).ToData()
 
 		outputDir <- fileData
 		runtime.Gosched() // TODO review
@@ -631,7 +632,7 @@ func HashATree(
 	var err error
 	shallTerminate := false
 
-	h, err := HashAlgorithmFromString(hashAlgorithm)
+	h, err := HashAlgos{}.FromString(hashAlgorithm)
 	if err != nil {
 		errChan <- err
 		return

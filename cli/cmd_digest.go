@@ -52,11 +52,13 @@ func NewCLIDigestCommand(app *kingpin.Application) *CLIDigestCommand {
 	c := new(CLIDigestCommand)
 	c.cmd = app.Command("digest", "Give the digest of an individual node.")
 
+	defaultHashAlgo := internals.HashAlgos{}.Default().Algorithm().Name()
+
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
 	c.DFS = c.cmd.Flag("dfs", "apply depth-first search for file system").Bool()
 	c.BFS = c.cmd.Flag("bfs", "apply breadth-first search for file system").Bool()
 	c.IgnorePermErrors = c.cmd.Flag("ignore-perm-errors", "ignore permission errors and continue traversal").Bool()
-	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", string(internals.DefaultHash))).Short('a').String()
+	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", defaultHashAlgo)).Short('a').String()
 	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
 	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
 	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings() // TODO trim any trailing/leading separators
@@ -215,12 +217,11 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 	}
 
 	// NOTE in this case, we don't generate fsstats
-	algo, err := internals.HashAlgorithmFromString(c.HashAlgorithm)
+	algo, err := internals.HashAlgos{}.FromString(c.HashAlgorithm)
 	if err != nil {
 		return 8, err
 	}
-	hash := algo.Algorithm()
-	digest := internals.HashNode(hash, c.BasenameMode, filepath.Dir(c.BaseNode), internals.FileData{
+	hashValue := internals.HashNode(algo, c.BasenameMode, filepath.Dir(c.BaseNode), internals.FileData{
 		Path:   filepath.Base(c.BaseNode),
 		Type:   internals.DetermineNodeType(fileinfo),
 		Size:   uint64(fileinfo.Size()),
@@ -232,7 +233,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 			Digest string `json:"digest"`
 		}
 
-		data := jsonResult{Digest: hex.EncodeToString(digest)}
+		data := jsonResult{Digest: hashValue.Digest()}
 		jsonRepr, err := json.Marshal(&data)
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)
@@ -240,7 +241,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 
 		w.Println(string(jsonRepr))
 	} else {
-		w.Println(hex.EncodeToString(digest))
+		w.Println(hashValue.Digest())
 	}
 
 	return 0, nil

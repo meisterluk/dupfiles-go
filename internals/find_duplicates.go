@@ -301,7 +301,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			}
 		}
 	}
-	algo, err := HashAlgorithmFromString(refHashAlgorithm)
+	algo, err := HashAlgos{}.FromString(refHashAlgorithm)
 	if err != nil {
 		errChan <- err
 		return

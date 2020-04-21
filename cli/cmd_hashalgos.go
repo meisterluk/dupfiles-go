@@ -75,11 +75,11 @@ func (c *HashAlgosCommand) Run(w Output, log Output) (int, error) {
 
 	data := dataSet{
 		CheckSucceeded: false,
-		SupHashAlgos:   internals.SupportedHashAlgorithms(),
+		SupHashAlgos:   internals.HashAlgos{}.Names(),
 	}
 
 	if c.CheckSupport != "" {
-		for _, h := range internals.SupportedHashAlgorithms() {
+		for _, h := range (internals.HashAlgos{}.Names()) {
 			if h == c.CheckSupport {
 				data.CheckSucceeded = true
 			}

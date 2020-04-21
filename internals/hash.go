@@ -5,81 +5,144 @@ import (
 	"strings"
 )
 
-// HashAlgo is an alias for string, but specifically can only
-// be one of the identifiers for hash algorithms.
-type HashAlgo string
+// HashAlgorithm is a custom interface to define operations
+// a hash algorithm needs to support to include it in dupfiles.
+// HashAlgorithm is implemented by every hash algorithm specified
+// in the dupfiles design document (see adjacent “hash_*.go” files).
+type HashAlgorithm interface {
+	// get state hash
+	Hash() Hash
+	// get string representation of this hash algorithm
+	Name() string
+	// return a copy of this hash algorithm with freshly initialized hash state
+	NewCopy() HashAlgorithm
+	// update hash state with file content at given filepath
+	ReadFile(string) error
+	// update hash state with given bytes
+	ReadBytes([]byte) error
+}
+
+// Hash represents some hash value of a hash algorithm
+type Hash interface {
+	// hexadecimal nibble representation, called “digest”
+	Digest() string
+	// fill Hash instance with given data
+	FromData([]byte)
+	// returns the digest size in bytes
+	Size() int
+	// returns the byte array which is the raw hash value
+	ToData() []byte
+	// update this hash by xoring this hash with the other hash.
+	// NOTE the caller needs to ensure both hashes have the same size.
+	XOR(Hash)
+}
+
+// HashAlgo is an alias for uint16. Specifically it is an index
+// into the table of all registered hash algorithms.
+type HashAlgo uint16
+
+// HashAlgos contains a complete list of all hash algorithms
+type HashAlgos struct{}
+
+// abstractions finished. Now we consider the actual implementations.
 
 const (
 	// HashCRC64 → Cyclic redundancy check, 64 bits output
-	HashCRC64 HashAlgo = `crc64`
+	HashCRC64 HashAlgo = iota
 	// HashCRC32 → Cyclic redundancy check, 32 bits output
-	HashCRC32 HashAlgo = `crc32`
+	HashCRC32 HashAlgo = iota
 	// HashFNV1_32 → Fowler–Noll–Vo hash function, 32 bits output
-	HashFNV1_32 HashAlgo = `fnv-1-32`
+	HashFNV1_32 HashAlgo = iota
 	// HashFNV1_64 → Fowler–Noll–Vo hash function, 64 bits output
-	HashFNV1_64 HashAlgo = `fnv-1-64`
+	HashFNV1_64 HashAlgo = iota
 	// HashFNV1_128 → Fowler–Noll–Vo hash function, 128 bits output
-	HashFNV1_128 HashAlgo = `fnv-1-128`
+	HashFNV1_128 HashAlgo = iota
 	// HashFNV1A32 → Fowler–Noll–Vo 1a hash function, 32 bits output
-	HashFNV1A32 HashAlgo = `fnv-1a-32`
+	HashFNV1A32 HashAlgo = iota
 	// HashFNV1A64 → Fowler–Noll–Vo 1a hash function, 64 bits output
-	HashFNV1A64 HashAlgo = `fnv-1a-64`
+	HashFNV1A64 HashAlgo = iota
 	// HashFNV1A128 → Fowler–Noll–Vo 1a hash function, 128 bits output
-	HashFNV1A128 HashAlgo = `fnv-1a-128`
+	HashFNV1A128 HashAlgo = iota
 	// HashADLER32 → Mark Adler's checksum algorithm, 32 bits output
-	HashADLER32 HashAlgo = `adler32`
+	HashADLER32 HashAlgo = iota
 	// HashMD5 → Message-digest algorithm, 128 bits output
-	HashMD5 HashAlgo = `md5`
+	HashMD5 HashAlgo = iota
 	// HashSHA1 → hash function, 160 bits output
-	HashSHA1 HashAlgo = `sha-1`
+	HashSHA1 HashAlgo = iota
 	// HashSHA256 → cryptographic hash function, 256 bits output
-	HashSHA256 HashAlgo = `sha-256`
+	HashSHA256 HashAlgo = iota
 	// HashSHA512 → cryptographic hash function, 512 bits output
-	HashSHA512 HashAlgo = `sha-512`
+	HashSHA512 HashAlgo = iota
 	// HashSHA3_512 → cryptographic hash function, 512 bits output
-	HashSHA3_512 HashAlgo = `sha-3-512`
+	HashSHA3_512 HashAlgo = iota
 	// HashSHAKE256_64 → cryptographic hash function, 128 bits output
-	HashSHAKE256_64 HashAlgo = `shake256-64`
+	HashSHAKE256_64 HashAlgo = iota
 )
 
-// DefaultHash documents the default hash algorithm that is used
-const DefaultHash HashAlgo = HashCRC64
+// CountHashAlgos returns the total number of registered hash algorithms
+const CountHashAlgos = 15
 
-// SupportedHashAlgorithms returns the list of supported hash algorithms.
-// The slice contains specified hash algorithm identifiers
-func SupportedHashAlgorithms() []string {
-	return []string{
-		string(HashCRC64),
-		string(HashCRC32),
-		string(HashFNV1_32),
-		string(HashFNV1_64),
-		string(HashFNV1_128),
-		string(HashFNV1A32),
-		string(HashFNV1A64),
-		string(HashFNV1A128),
-		string(HashADLER32),
-		string(HashMD5),
-		string(HashSHA1),
-		string(HashSHA256),
-		string(HashSHA512),
-		string(HashSHA3_512),
-		string(HashSHAKE256_64),
+// Algorithm returns a HashAlgorithm instance for the given hash algorithm name
+func (h HashAlgo) Algorithm() HashAlgorithm {
+	switch h {
+	case HashCRC64:
+		return NewCRC64()
+	case HashCRC32:
+		return NewCRC32()
+	case HashFNV1_32:
+		return NewFNV1_32()
+	case HashFNV1_64:
+		return NewFNV1_64()
+	case HashFNV1_128:
+		return NewFNV1_128()
+	case HashFNV1A32:
+		return NewFNV1a_32()
+	case HashFNV1A64:
+		return NewFNV1a_64()
+	case HashFNV1A128:
+		return NewFNV1a_128()
+	case HashADLER32:
+		return NewAdler32()
+	case HashMD5:
+		return NewMD5()
+	case HashSHA1:
+		return NewSHA1()
+	case HashSHA256:
+		return NewSHA256()
+	case HashSHA512:
+		return NewSHA512()
+	case HashSHA3_512:
+		return NewSHA3_512()
+	case HashSHAKE256_64:
+		return NewSHAKE256_128()
 	}
+	return HashAlgos{}.Default().Algorithm()
 }
 
-func isValidHashAlgo(Hashalgo string) bool {
-	whitelist := []string{
-		"crc64", "crc32", "fnv-1-32", "fnv-1-64", "fnv-1-128", "fnv-1a-32", "fnv-1a-64",
-		"fnv-1a-128", "adler32", "md5", "sha-1", "sha-256", "sha-512", "sha-3",
-		"shake256-128",
-	}
-	for _, item := range whitelist {
-		if item == Hashalgo {
-			return true
+// Default returns the default hash algorithm
+func (h HashAlgos) Default() HashAlgo {
+	return HashFNV1A128
+}
+
+// FromString returns a HashAlgo instance matching the hash algorithm's name as a string
+func (h HashAlgos) FromString(name string) (HashAlgo, error) {
+	name = strings.TrimSpace(strings.ToLower(name))
+	for i := 0; i < CountHashAlgos; i++ {
+		h := HashAlgo(i)
+		if h.Algorithm().Name() == name {
+			return h, nil
 		}
 	}
+	return h.Default(), fmt.Errorf(`expected hash algorithm name; got unknown name '%q'`, name)
+}
 
-	return false
+// Names returns the list of names of supported hash algorithms.
+func (h HashAlgos) Names() []string {
+	list := make([]string, CountHashAlgos)
+	for i := 0; i < CountHashAlgos; i++ {
+		list[i] = HashAlgo(i).Algorithm().Name()
+	}
+	return list
 }
 
 // DigestSize returns the output size in bytes for a given hash algorithm.
@@ -117,71 +180,4 @@ func (h HashAlgo) DigestSize() int {
 		return 8
 	}
 	return 0
-}
-
-// Algorithm returns a Hash instance for the given hash algorithm name.
-func (h HashAlgo) Algorithm() Hash {
-	switch h {
-	case HashCRC64:
-		return NewCRC64()
-	case HashCRC32:
-		return NewCRC32()
-	case HashFNV1_32:
-		return NewFNV1_32()
-	case HashFNV1_64:
-		return NewFNV1_64()
-	case HashFNV1_128:
-		return NewFNV1_128()
-	case HashFNV1A32:
-		return NewFNV1a_32()
-	case HashFNV1A64:
-		return NewFNV1a_64()
-	case HashFNV1A128:
-		return NewFNV1a_128()
-	case HashADLER32:
-		return NewAdler32()
-	case HashMD5:
-		return NewMD5()
-	case HashSHA1:
-		return NewSHA1()
-	case HashSHA256:
-		return NewSHA256()
-	case HashSHA512:
-		return NewSHA512()
-	case HashSHA3_512:
-		return NewSHA3_512()
-	case HashSHAKE256_64:
-		return NewSHAKE256_128()
-	}
-	return DefaultHash.Algorithm()
-}
-
-// HashAlgorithmFromString returns a HashAlgo instance, give the hash algorithm's name as a string
-func HashAlgorithmFromString(name string) (HashAlgo, error) {
-	name = strings.ToLower(name)
-	for _, algo := range SupportedHashAlgorithms() {
-		if name == algo {
-			return HashAlgo(algo), nil
-		}
-	}
-	return DefaultHash, fmt.Errorf(`unknown hash algorithm %q`, name)
-}
-
-// Hash is a custom interface to define operations
-// a hash algorithm needs to support to include it in dupfiles
-type Hash interface {
-	// returns number of bytes of the digest
-	Size() int
-	// update hash state with data of file at given filepath
-	ReadFile(string) error
-	// update hash state with given bytes
-	ReadBytes([]byte) error
-	// reset hash state
-	Reset()
-	// get hash state digest
-	Digest() []byte
-	// get hash state digest represented as hexadecimal string
-	HexDigest() string
-	// get string representation of this hash algorithm
-	Name() string
 }

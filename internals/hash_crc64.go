@@ -1,7 +1,6 @@
 package internals
 
 import (
-	"encoding/hex"
 	"hash"
 	"hash/crc64"
 	"io"
@@ -23,9 +22,30 @@ func NewCRC64() *CRC64 {
 	return c
 }
 
-// Size returns the number of bytes of the hashsum
-func (c *CRC64) Size() int {
-	return c.h.Size()
+// Hash returns the hash state in a Hash instance
+func (c *CRC64) Hash() Hash {
+	sum := c.h.Sum64()
+	return Hash64Bits([8]byte{
+		byte(sum >> 56),
+		byte(sum >> 48),
+		byte(sum >> 40),
+		byte(sum >> 32),
+		byte(sum >> 24),
+		byte(sum >> 16),
+		byte(sum >> 8),
+		byte(sum >> 0),
+	})
+}
+
+// Name returns the hash algorithm's name
+// in accordance with the dupfiles design document
+func (c *CRC64) Name() string {
+	return "crc64"
+}
+
+// NewCopy returns a copy of this hash algorithm with freshly initialized hash state
+func (c *CRC64) NewCopy() HashAlgorithm {
+	return NewCRC64()
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file
@@ -50,36 +70,4 @@ func (c *CRC64) ReadFile(filepath string) error {
 func (c *CRC64) ReadBytes(data []byte) error {
 	_, err := c.h.Write(data)
 	return err
-}
-
-// Reset resets the hash state to its initial state.
-// After this call functions like `ReadFile` or `ReadBytes` can be called.
-func (c *CRC64) Reset() {
-	c.h.Reset()
-}
-
-// Digest returns the digest resulting from the hash state
-func (c *CRC64) Digest() []byte {
-	sum := c.h.Sum64()
-	return []byte{
-		byte(sum >> 56),
-		byte(sum >> 48),
-		byte(sum >> 40),
-		byte(sum >> 32),
-		byte(sum >> 24),
-		byte(sum >> 16),
-		byte(sum >> 8),
-		byte(sum >> 0),
-	}
-}
-
-// HexDigest returns the hash state digest encoded in a hexadecimal string
-func (c *CRC64) HexDigest() string {
-	return hex.EncodeToString(c.Digest())
-}
-
-// Name returns the hash algorithm's name
-// in accordance with the dupfiles design document
-func (c *CRC64) Name() string {
-	return "crc64"
 }

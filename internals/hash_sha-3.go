@@ -1,7 +1,6 @@
 package internals
 
 import (
-	"encoding/hex"
 	"hash"
 	"io"
 	"os"
@@ -22,9 +21,23 @@ func NewSHA3_512() *SHA3_512 {
 	return c
 }
 
-// Size returns the number of bytes of the hashsum
-func (c *SHA3_512) Size() int {
-	return c.h.Size()
+// Hash returns the hash state in a Hash instance
+func (c *SHA3_512) Hash() Hash {
+	var hash [64]byte
+	data := c.h.Sum([]byte{})
+	copy(hash[:], data)
+	return Hash512Bits(hash)
+}
+
+// Name returns the hash algorithm's name
+// in accordance with the dupfiles design document
+func (c *SHA3_512) Name() string {
+	return "sha-3-512"
+}
+
+// NewCopy returns a copy of this hash algorithm with freshly initialized hash state
+func (c *SHA3_512) NewCopy() HashAlgorithm {
+	return NewSHA3_512()
 }
 
 // ReadFile provides an interface to update the hash state with the content of an entire file
@@ -49,26 +62,4 @@ func (c *SHA3_512) ReadFile(filepath string) error {
 func (c *SHA3_512) ReadBytes(data []byte) error {
 	_, err := c.h.Write(data)
 	return err
-}
-
-// Reset resets the hash state to its initial state.
-// After this call functions like `ReadFile` or `ReadBytes` can be called.
-func (c *SHA3_512) Reset() {
-	c.h.Reset()
-}
-
-// Digest returns the digest resulting from the hash state
-func (c *SHA3_512) Digest() []byte {
-	return c.h.Sum([]byte{})
-}
-
-// HexDigest returns the hash state digest encoded in a hexadecimal string
-func (c *SHA3_512) HexDigest() string {
-	return hex.EncodeToString(c.Digest())
-}
-
-// Name returns the hash algorithm's name
-// in accordance with the dupfiles design document
-func (c *SHA3_512) Name() string {
-	return "sha-3-512"
 }
