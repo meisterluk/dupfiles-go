@@ -8,6 +8,12 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+// JSONSuccessResult is a struct used to serialize JSON output
+type JSONSuccessResult struct {
+	Version     string `json:"version"`
+	ReleaseDate string `json:"release-date"`
+}
+
 // CLIVersionCommand defines the CLI arguments as kingpin requires them
 type CLIVersionCommand struct {
 	cmd          *kingpin.CmdClause
@@ -16,6 +22,7 @@ type CLIVersionCommand struct {
 	Help         *bool
 }
 
+// NewCLIVersionCommand defines the flags/arguments the CLI parser is supposed to understand
 func NewCLIVersionCommand(app *kingpin.Application) *CLIVersionCommand {
 	c := new(CLIVersionCommand)
 	c.cmd = app.Command("version", "Print implementation version, license and author. Exit code is always 0.")
@@ -26,6 +33,8 @@ func NewCLIVersionCommand(app *kingpin.Application) *CLIVersionCommand {
 	return c
 }
 
+// Validate renders all arguments into a VersionCommand or throws an error.
+// VersionCommand provides *all* arguments to run a 'version' command.
 func (c *CLIVersionCommand) Validate() (*VersionCommand, error) {
 	// migrate CLIVersionCommand to versionCommand
 	cmd := new(VersionCommand)
@@ -65,12 +74,7 @@ func (c *VersionCommand) Run(w Output, log Output) (int, error) {
 	versionString := fmt.Sprintf("%d.%d.%d", v1.VERSION_MAJOR, v1.VERSION_MINOR, v1.VERSION_PATCH)
 
 	if c.JSONOutput {
-		// TODO include release date
-		type jsonResult struct {
-			Version string `json:"version"`
-		}
-
-		data := jsonResult{Version: versionString}
+		data := JSONSuccessResult{Version: versionString, ReleaseDate: v1.RELEASE_DATE}
 		b, err := json.Marshal(&data)
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)
@@ -78,7 +82,8 @@ func (c *VersionCommand) Run(w Output, log Output) (int, error) {
 		w.Println(string(b))
 
 	} else {
-		w.Println(versionString)
+		w.Println(fmt.Sprintf("Version: %s", versionString))
+		w.Println(fmt.Sprintf("Release date: %s", v1.RELEASE_DATE))
 	}
 
 	return 0, nil

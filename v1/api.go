@@ -1,10 +1,13 @@
 package v1
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const VERSION_MAJOR = 1
 const VERSION_MINOR = 0
 const VERSION_PATCH = 0
+const RELEASE_DATE = "2020-04-29"
 
 func GenerateReport(ReportParameters) error {
 	return fmt.Errorf(`not implemented yet`)
