@@ -37,7 +37,6 @@ type DirData struct {
 // DupOutput defines the subset of ReportTailLine which is output for a found duplicate
 type DupOutput struct {
 	ReportFile string
-	Lineno     uint64
 	Path       string
 }
 

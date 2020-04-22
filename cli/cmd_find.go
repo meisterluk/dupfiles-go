@@ -12,7 +12,6 @@ import (
 
 // FindJSONResult is a struct used to serialize JSON output
 type FindJSONResult struct {
-	LineNo     uint64 `json:"lineno"`
 	ReportFile string `json:"report"`
 	Path       string `json:"path"`
 }
@@ -131,7 +130,6 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 				entries := make([]FindJSONResult, 0, len(entry.Set))
 				for _, equiv := range entry.Set {
 					entries = append(entries, FindJSONResult{
-						LineNo:     equiv.Lineno,
 						ReportFile: equiv.ReportFile,
 						Path:       equiv.Path,
 					})
