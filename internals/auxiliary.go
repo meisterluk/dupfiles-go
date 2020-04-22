@@ -156,7 +156,7 @@ func DetermineDepth(path string, sep byte) uint16 {
 // Dir returns the directory component of a given filepath.
 // NOTE use it only on data in report files
 func Dir(path string, sep byte) string {
-	index := len(path)
+	index := len(path) - 1
 	for index > 0 && path[index] != sep {
 		index--
 	}
