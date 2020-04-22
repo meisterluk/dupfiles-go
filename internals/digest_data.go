@@ -102,7 +102,7 @@ func (d *DigestData) IndexOf(hashValue []byte) (int, bool) {
 
 // Dump dumps the data within the data structure for debugging purposes
 func (d *DigestData) Dump() {
-	log.Println("<data>")
+	log.Println(`<data columns="hashvalue‖disabled‖dups">`)
 	for i := 0; i < 256; i++ {
 		firstByte := hex.EncodeToString([]byte{byte(i)})
 		for j := 0; j*d.hashValueSize < len(d.data[i]); j++ {
