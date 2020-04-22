@@ -304,6 +304,27 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 	// at this point, "trees" must only be accessed read-only
 
+	// TODO just debug information
+	data.Dump()
+
+	var dumpTree func(*HierarchyNode, *DigestData, int)
+	dumpTree = func(node *HierarchyNode, data *DigestData, indent int) {
+		identation := strings.Repeat("  ", indent)
+		basename := node.basename
+		if node.basename == "" && indent == 0 {
+			basename = "."
+		}
+		log.Printf("%s%s (parent %p) %s and %d child(ren) and %d duplicates\n",
+			identation, basename, node.parent,
+			data.Hash(node.hashValueFirstByte, int(node.hashValueIndex>>1)).Digest(),
+			len(node.children),
+			data.Duplicates(node.hashValueFirstByte, int(node.hashValueIndex>>1)),
+		)
+		for c := 0; c < len(node.children); c++ {
+			dumpTree(&node.children[c], data, indent+1)
+		}
+	}
+
 	// verify that all nodes have been initialized (i.e. have digest in file)
 	var verifyTree func(*HierarchyNode, *DigestData, string, byte)
 	verifyTree = func(node *HierarchyNode, data *DigestData, reportFile string, sep byte) {
@@ -330,27 +351,6 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	}
 	for i := range trees {
 		verifyTree(trees[i], data, reportFiles[i], separators[i])
-	}
-
-	// TODO just debug information
-	data.Dump()
-
-	var dumpTree func(*HierarchyNode, *DigestData, int)
-	dumpTree = func(node *HierarchyNode, data *DigestData, indent int) {
-		identation := strings.Repeat("  ", indent)
-		basename := node.basename
-		if node.basename == "" && indent == 0 {
-			basename = "."
-		}
-		log.Printf("%s%s (parent %p) %s and %d child(ren) and %d duplicates\n",
-			identation, basename, node.parent,
-			data.Hash(node.hashValueFirstByte, int(node.hashValueIndex>>1)).Digest(),
-			len(node.children),
-			data.Duplicates(node.hashValueFirstByte, int(node.hashValueIndex>>1)),
-		)
-		for c := 0; c < len(node.children); c++ {
-			dumpTree(&node.children[c], data, indent+1)
-		}
 	}
 
 	// TODO just debug information
