@@ -183,6 +183,9 @@ func Base(path string, sep byte) string {
 // For example let sep be '/', then `a/b` returns ["a", "b"].
 // NOTE use it only on data in report files
 func PathSplit(path string, sep byte) []string {
+	if path == "" {
+		return []string{}
+	}
 	return strings.Split(path, string(sep))
 }
 
