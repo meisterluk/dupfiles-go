@@ -57,7 +57,7 @@ func NewCLIDigestCommand(app *kingpin.Application) *CLIDigestCommand {
 	c := new(CLIDigestCommand)
 	c.cmd = app.Command("digest", "Give the digest of an individual node.")
 
-	defaultHashAlgo := internals.HashAlgos{}.Default().Algorithm().Name()
+	defaultHashAlgo := internals.HashAlgos{}.Default().Instance().Name()
 
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
 	c.DFS = c.cmd.Flag("dfs", "apply depth-first search for file system").Bool()
@@ -192,7 +192,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 		// read value from evaluation
 		maxHashValueSize := 0
 		for h := 0; h < internals.CountHashAlgos; h++ {
-			outSize := internals.HashAlgo(h).Algorithm().OutputSize()
+			outSize := internals.HashAlgo(h).Instance().OutputSize()
 			if outSize > maxHashValueSize {
 				maxHashValueSize = outSize
 			}

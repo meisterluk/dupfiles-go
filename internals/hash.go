@@ -73,8 +73,8 @@ const (
 // CountHashAlgos returns the total number of registered hash algorithms
 const CountHashAlgos = 15
 
-// Algorithm returns a HashAlgorithm instance for the given hash algorithm name
-func (h HashAlgo) Algorithm() HashAlgorithm {
+// Instance returns a HashAlgorithm instance for the given hash algorithm name
+func (h HashAlgo) Instance() HashAlgorithm {
 	switch h {
 	case HashCRC64:
 		return NewCRC64()
@@ -107,7 +107,7 @@ func (h HashAlgo) Algorithm() HashAlgorithm {
 	case HashSHAKE256_64:
 		return NewSHAKE256_128()
 	}
-	return HashAlgos{}.Default().Algorithm()
+	return HashAlgos{}.Default().Instance()
 }
 
 // Default returns the default hash algorithm
@@ -120,7 +120,7 @@ func (h HashAlgos) FromString(name string) (HashAlgo, error) {
 	name = strings.TrimSpace(strings.ToLower(name))
 	for i := 0; i < CountHashAlgos; i++ {
 		h := HashAlgo(i)
-		if h.Algorithm().Name() == name {
+		if h.Instance().Name() == name {
 			return h, nil
 		}
 	}
@@ -131,7 +131,7 @@ func (h HashAlgos) FromString(name string) (HashAlgo, error) {
 func (h HashAlgos) Names() []string {
 	list := make([]string, CountHashAlgos)
 	for i := 0; i < CountHashAlgos; i++ {
-		list[i] = HashAlgo(i).Algorithm().Name()
+		list[i] = HashAlgo(i).Instance().Name()
 	}
 	return list
 }

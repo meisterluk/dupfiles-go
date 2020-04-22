@@ -43,7 +43,7 @@ func NewCLIReportCommand(app *kingpin.Application) *CLIReportCommand {
 	c := new(CLIReportCommand)
 	c.cmd = app.Command("report", "Generates a report file.")
 
-	defaultHashAlgo := internals.HashAlgos{}.Default().Algorithm().Name()
+	defaultHashAlgo := internals.HashAlgos{}.Default().Instance().Name()
 
 	c.BaseNode = c.cmd.Arg("basenode", "base node to generate report for").Required().String()
 	c.BaseNodeName = c.cmd.Flag("basenode-name", "human-readable base node name in head line").Short('b').String()

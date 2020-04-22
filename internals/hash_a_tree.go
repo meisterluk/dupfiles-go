@@ -67,7 +67,7 @@ type WalkParameters struct {
 // HashNode generates the hash value of a given file (at join(basePath, data.Path)).
 // For directories, only the filename is hashed on basename mode.
 func HashNode(hashAlgorithm HashAlgo, basenameMode bool, basePath string, data FileData) Hash {
-	hash := hashAlgorithm.Algorithm().NewCopy()
+	hash := hashAlgorithm.Instance().NewCopy()
 	// TODO does it make sense that basePath and data.Path is provided. We mostly need their joined version, right?
 
 	switch {
@@ -182,7 +182,7 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			if err != nil {
 				return false, err
 			}
-			hash := h.Algorithm()
+			hash := h.Instance()
 			err = hash.ReadBytes([]byte(filepath.Base(nodePath)))
 			if err != nil {
 				return false, err
@@ -283,7 +283,7 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			if err != nil {
 				return false, err
 			}
-			hash := h.Algorithm()
+			hash := h.Instance()
 			err = hash.ReadBytes([]byte(filepath.Base(nodePath)))
 			if err != nil {
 				return false, err
@@ -366,7 +366,7 @@ func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
 		fileData.HashValue = HashNode(hashAlgorithm, basenameMode, basePath, fileData)
 
 		if basenameMode {
-			algo := hashAlgorithm.Algorithm()
+			algo := hashAlgorithm.Instance()
 			algo.ReadBytes([]byte(filepath.Base(fileData.Path)))
 			h := algo.Hash()
 			Hash(fileData.HashValue).XOR(h)
@@ -667,7 +667,7 @@ func HashATree(
 
 	wg.Add(3 + 4)
 
-	go UnitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.Algorithm().OutputSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
+	go UnitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.Instance().OutputSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
 	for i := 0; i < 4; i++ { // TODO static number 4 is wrong, right?
 		go UnitHashFile(h, basenameMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
 			workerTerminated <- true

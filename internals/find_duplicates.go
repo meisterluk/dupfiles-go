@@ -149,7 +149,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 		errChan <- err
 		return
 	}
-	hashValueSizeI := algo.Algorithm().OutputSize()
+	hashValueSizeI := algo.Instance().OutputSize()
 	hashValueSize := uint64(hashValueSizeI)
 	basenameString := "basename"
 	if !refBasenameMode {
