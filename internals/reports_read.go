@@ -16,7 +16,7 @@ var headLineRegex *regexp.Regexp
 var tailLineRegex *regexp.Regexp
 
 func init() {
-	headLineRegex = regexp.MustCompilePOSIX(`# +([0-9.]+(\.[0-9.]+){0,2}) +([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}) +([-_a-zA-Z0-9]+) (B|E) +([-._a-zA-Z0-9]+) +([^\r\n]+)`)
+	headLineRegex = regexp.MustCompilePOSIX(`# +([0-9.]+(\.[0-9.]+){0,2}) +([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}) +([-_a-zA-Z0-9]+) (B|E) (/|\\) +([-._a-zA-Z0-9]+) +([^\r\n]+)`)
 	tailLineRegex = regexp.MustCompilePOSIX(`([0-9a-fA-F]+) +([A-Z]) +([0-9]+) ([^\r\n]*)`)
 }
 
@@ -115,8 +115,9 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			r.Head.Timestamp = timestamp
 			r.Head.HashAlgorithm = hashAlgorithm
 			r.Head.BasenameMode = mode == 'B'
-			r.Head.NodeName = string(groups[6])
-			r.Head.BasePath = string(groups[7])
+			r.Head.Separator = byte(groups[6][0])
+			r.Head.NodeName = string(groups[7])
+			r.Head.BasePath = string(groups[8])
 
 			return r.Iterate() // go to next line
 

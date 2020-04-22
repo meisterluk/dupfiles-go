@@ -227,7 +227,7 @@ func (c *ReportCommand) Run(w Output, log Output) (int, error) {
 	if err != nil {
 		return 6, err
 	}
-	err = rep.HeadLine(c.HashAlgorithm, !c.EmptyMode, c.BaseNodeName, fullPath)
+	err = rep.HeadLine(c.HashAlgorithm, !c.EmptyMode, byte(filepath.Separator), c.BaseNodeName, fullPath)
 	if err != nil {
 		return 6, err
 	}

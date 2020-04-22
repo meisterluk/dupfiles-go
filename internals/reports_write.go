@@ -26,16 +26,16 @@ func NewReportWriter(filepath string) (*Report, error) {
 }
 
 // HeadLine writes a headline to the report given the parameters provided
-func (r *Report) HeadLine(hashAlgorithm string, basenameMode bool, nodeName, basePath string) error {
+func (r *Report) HeadLine(hashAlgorithm string, basenameMode bool, separator byte, nodeName, basePath string) error {
 	mode := "E"
 	if basenameMode {
 		mode = "B"
 	}
 
-	_, err := fmt.Fprintf(r.File, "# 1.0.0 %s %s %s %s %s\n",
+	_, err := fmt.Fprintf(r.File, "# 1.0.0 %s %s %s %s %s %s\n",
 		time.Now().UTC().Format("2006-01-02T15:04:05"),
 		hashAlgorithm,
-		mode, nodeName, ByteEncode(basePath))
+		mode, string(separator), nodeName, ByteEncode(basePath))
 	return err
 }
 

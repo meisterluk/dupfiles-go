@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
 	"time"
 
 	"github.com/meisterluk/dupfiles-go/internals"
@@ -25,6 +24,7 @@ type BriefReportStatistics struct {
 	HeadTimestamp       time.Time     `json:"head-timestamp"`
 	HeadHashAlgorithm   string        `json:"head-hash-algorithm"`
 	HeadBasenameMode    bool          `json:"head-basename-mode"`
+	HeadSeparator       string        `json:"head-separator`
 	HeadNodeName        string        `json:"head-node-name"`
 	HeadBasePath        string        `json:"head-base-path"`
 	NumUNIXDeviceFile   uint32        `json:"count-unix-device"`
@@ -158,7 +158,7 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 		}
 
 		// consider folder depth
-		depth := internals.DetermineDepth(tail.Path, filepath.Separator)
+		depth := internals.DetermineDepth(tail.Path, rep.Head.Separator)
 		if depth > briefStats.MaxDepth {
 			briefStats.MaxDepth = depth
 		}
@@ -194,6 +194,7 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 	briefStats.HeadTimestamp = rep.Head.Timestamp
 	briefStats.HeadHashAlgorithm = rep.Head.HashAlgorithm
 	briefStats.HeadBasenameMode = rep.Head.BasenameMode
+	briefStats.HeadSeparator = string(rep.Head.Separator)
 	briefStats.HeadNodeName = rep.Head.NodeName
 	briefStats.HeadBasePath = rep.Head.BasePath
 

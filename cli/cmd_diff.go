@@ -176,11 +176,11 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 			if tail.Path == match.BaseNode && (tail.NodeType == 'D' || tail.NodeType == 'L') {
 				anyFound[t] = true
 			}
-			if !strings.HasPrefix(tail.Path, match.BaseNode) || internals.DetermineDepth(tail.Path, filepath.Separator)-1 != internals.DetermineDepth(match.BaseNode, filepath.Separator) {
+			if !strings.HasPrefix(tail.Path, match.BaseNode) || internals.DetermineDepth(tail.Path, rep.Head.Separator)-1 != internals.DetermineDepth(match.BaseNode, rep.Head.Separator) {
 				continue
 			}
 
-			given := Identifier{Digest: internals.Hash(tail.HashValue).Digest(), BaseName: internals.Base(tail.Path, filepath.Separator)}
+			given := Identifier{Digest: internals.Hash(tail.HashValue).Digest(), BaseName: internals.Base(tail.Path, rep.Head.Separator)}
 			value, ok := diffMatches[given]
 			if ok {
 				value[t] = true

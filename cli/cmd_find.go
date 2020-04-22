@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/meisterluk/dupfiles-go/internals"
@@ -154,7 +153,7 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 				//log.Println("<duplicates>")
 				out := internals.Hash(entry.HashValue).Digest() + "\n"
 				for _, s := range entry.Set {
-					out += `  ` + s.ReportFile + " " + string(filepath.Separator) + " " + s.Path + "\n"
+					out += `  ` + s.ReportFile + "\t→ " + s.Path + "\n"
 				}
 				w.Println(out) // TODO or c.Output
 				// TODO json output support

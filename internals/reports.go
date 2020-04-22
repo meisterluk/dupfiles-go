@@ -12,6 +12,7 @@ type ReportHeadLine struct {
 	Timestamp     time.Time
 	HashAlgorithm string
 	BasenameMode  bool
+	Separator     byte
 	NodeName      string
 	BasePath      string
 }

@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -40,8 +39,10 @@ type HierarchyNode struct {
 
 // Match represents equivalent nodes found in a report file
 type Match struct {
+	// TODO public members
 	node       *HierarchyNode
 	reportFile string
+	reportSep  byte
 }
 
 // FindDuplicates finds duplicate nodes in report files. The results are sent to outChan.
@@ -102,6 +103,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	var refVersion uint16
 	var refHashAlgorithm string
 	var refBasenameMode bool
+	separators := ""
 	for _, reportFile := range reportFiles {
 		stat, err := os.Stat(reportFile)
 		if err != nil {
@@ -120,6 +122,9 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			errChan <- err
 			return
 		}
+
+		separators = separators + string(rep.Head.Separator)
+
 		version := rep.Head.Version[0]
 		hashAlgorithm := rep.Head.HashAlgorithm
 		baseName := rep.Head.BasenameMode
@@ -144,6 +149,11 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			}
 		}
 	}
+
+	if len(separators) != len(reportFiles) {
+		panic("internal error: stored wrong number of separators")
+	}
+
 	algo, err := HashAlgos{}.FromString(refHashAlgorithm)
 	if err != nil {
 		errChan <- err
@@ -236,7 +246,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	log.Printf("Step 3 of 4 started: build filesystem tree of duplicates\n")
 	trees := make([]*HierarchyNode, 0, len(reportFiles))
 
-	for _, reportFile := range reportFiles {
+	for i, reportFile := range reportFiles {
 		log.Printf("reading '%s' …\n", reportFile)
 		rootNode := new(HierarchyNode)
 		rootNode.parent = rootNode
@@ -262,7 +272,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			index, _ := data.IndexOf(tail.HashValue)
 
 			// is duplicate ⇒ add to tree
-			components := PathSplit(tail.Path, filepath.Separator)
+			components := PathSplit(tail.Path, separators[i])
 			currentNode := rootNode
 			for _, component := range components {
 				// traverse into correct component
@@ -295,31 +305,33 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// at this point, "trees" must only be accessed read-only
 
 	// verify that all nodes have been initialized (i.e. have digest in file)
-	var verifyTree func(*HierarchyNode, *DigestData, string)
-	verifyTree = func(node *HierarchyNode, data *DigestData, reportFile string) {
+	var verifyTree func(*HierarchyNode, *DigestData, string, byte)
+	verifyTree = func(node *HierarchyNode, data *DigestData, reportFile string, sep byte) {
 		if node.hashValueIndex&1 == 0 {
 			// determine full path
 			fullPath := ""
+			components := make([]string, 16)
 			currentNode := node
 			for {
-				fullPath = fullPath + string(filepath.Separator) + node.basename
+				components = append(components, node.basename)
 				if currentNode == currentNode.parent {
 					break
 				}
 				currentNode = currentNode.parent
 			}
 			if len(fullPath) > 0 {
-				fullPath = fullPath[1:]
+				ReverseStringSlice(components)
+				fullPath = PathRestore(components, sep)
 			}
 			panic(fmt.Sprintf("node '%s' is missing in reportFile '%s'", fullPath, reportFile))
 		}
 		// traverse into children
 		for c := 0; c < len(node.children); c++ {
-			verifyTree(&node.children[c], data, reportFile)
+			verifyTree(&node.children[c], data, reportFile, sep)
 		}
 	}
 	for i := range trees {
-		verifyTree(trees[i], data, reportFiles[i])
+		verifyTree(trees[i], data, reportFiles[i], separators[i])
 	}
 
 	// TODO just debug information
@@ -603,19 +615,18 @@ func PublishDuplicates(matches []Match, data *DigestData, outChan chan<- Duplica
 
 	outputs := make([]DupOutput, 0, len(matches))
 	for _, matchData := range matches {
-		approximatePath := (*matchData.node).basename
+		components := make([]string, 0, 16)
+		components = append(components, (*matchData.node).basename)
 		node := matchData.node
 		for {
 			if node.parent == node {
 				break
 			}
 			node = node.parent
-			approximatePath = node.basename + string(filepath.Separator) + approximatePath
+			components = append(components, node.basename)
 		}
-		if len(approximatePath) > 0 {
-			approximatePath = approximatePath[1:]
-		}
-		outputs = append(outputs, DupOutput{ReportFile: matchData.reportFile, Path: approximatePath})
+		path := PathRestore(components, matchData.reportSep)
+		outputs = append(outputs, DupOutput{ReportFile: matchData.reportFile, Path: path})
 	}
 
 	outChan <- DuplicateSet{
