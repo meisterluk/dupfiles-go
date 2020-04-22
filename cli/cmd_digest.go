@@ -199,7 +199,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 		}
 		hashValue := make(internals.Hash, maxHashValueSize)
 		for tailline := range output {
-			if tailline.Path == "." {
+			if tailline.Path == "." || tailline.Path == "" {
 				copy(hashValue, tailline.HashValue)
 			}
 		}

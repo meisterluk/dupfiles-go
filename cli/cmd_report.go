@@ -151,7 +151,7 @@ func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 	}
 
 	if cmd.Output == "" {
-		if cmd.BaseNodeName == "." {
+		if cmd.BaseNodeName == "." || cmd.BaseNodeName == "" {
 			cmd.Output = "report.fsr"
 		} else {
 			cmd.Output = cmd.BaseNodeName + ".fsr"

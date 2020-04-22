@@ -17,7 +17,7 @@ var tailLineRegex *regexp.Regexp
 
 func init() {
 	headLineRegex = regexp.MustCompilePOSIX(`# +([0-9.]+(\.[0-9.]+){0,2}) +([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}) +([-_a-zA-Z0-9]+) (B|E) +([-._a-zA-Z0-9]+) +([^\r\n]+)`)
-	tailLineRegex = regexp.MustCompilePOSIX(`([0-9a-fA-F]+) +([A-Z]) +([0-9]+) ([^\r\n]+)`)
+	tailLineRegex = regexp.MustCompilePOSIX(`([0-9a-fA-F]+) +([A-Z]) +([0-9]+) ([^\r\n]*)`)
 }
 
 // NewReportReader creates a file descriptor for filepath
@@ -141,11 +141,6 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			tail.FileSize = uint64(fileSize)
 
 			tail.Path = string(groups[4])
-			if tail.Path == "." {
-				// the external representation of the root is "."
-				// the internal representation of the root is ""
-				tail.Path = ""
-			}
 			tailLineRead = true
 		}
 

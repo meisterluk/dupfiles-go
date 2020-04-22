@@ -48,12 +48,6 @@ func EqByteSlices(as, bs []byte) bool {
 
 // ByteEncode implements the byte encoding defined in the design document
 func ByteEncode(basename string) string {
-	if basename == "" {
-		// "" is the internal representation of the root
-		// it's external representation is "."
-		return "."
-	}
-
 	if utf8.ValidString(basename) {
 		// only individual characters need to be encoded
 		re := regexp.MustCompile(`\\{1,}`)
