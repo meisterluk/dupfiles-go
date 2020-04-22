@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -147,52 +146,50 @@ func IsPermissionError(err error) bool {
 }
 
 // DetermineDepth determines the filepath depth of the given filepath.
-// For example `a/b` returns 1 and `d/c/b/a` returns 3.
-func DetermineDepth(path string) uint16 {
-	// NOTE  This implementation is presumably very inaccurate.
-	//       But there is no cross-platform way in golang to do this.
-	p := strings.Trim(path, string(filepath.Separator)) // remove leading/trailing separators
-	return uint16(strings.Count(p, string(filepath.Separator)))
+// For example let sep be '/', then `a/b` returns 1 and `d/c/b/a` returns 3.
+// NOTE use it only on data in report files
+func DetermineDepth(path string, sep byte) uint16 {
+	return uint16(strings.Count(path, string(sep)))
 }
 
-// Dir returns the directory component of a given filepath (similar to filepath.Dir).
-// NOTE internally, the root node is represented as ""; not "." or "/"
-func Dir(path string) string {
-	path = filepath.Dir(path)
-	if path == "." {
-		path = ""
+// Dir returns the directory component of a given filepath.
+// NOTE use it only on data in report files
+func Dir(path string, sep byte) string {
+	index := len(path)
+	for index > 0 && path[index] != sep {
+		index--
 	}
-	return path
+	if index == 0 {
+		return ""
+	}
+	return path[0:index]
+}
+
+// Base returns the last component of a given filepath.
+// NOTE use it only on data in report files
+func Base(path string, sep byte) string {
+	index := len(path)
+	for index > 0 && path[index] != sep {
+		index--
+	}
+	if index == 0 {
+		return path
+	}
+	return path[index:len(path)]
 }
 
 // PathSplit takes a filesystem path and splits it into individual components
-func PathSplit(path string) []string {
-	if path == "." {
-		return []string{""}
-	}
-	componentsRev := make([]string, 0, 8)
-	// ASSUMPTION max depth 50
-	for i := 0; i < 50; i++ {
-		dir, file := filepath.Split(path)
-		if file != "" {
-			componentsRev = append(componentsRev, file)
-		}
-		if dir == "" {
-			break
-		}
-		// TODO is checking for forward & backward slash portable?
-		if len(dir) > 0 && (dir[len(dir)-1] == '/' || dir[len(dir)-1] == '\\') {
-			dir = dir[0 : len(dir)-1]
-		}
-		path = dir
-	}
+// For example let sep be '/', then `a/b` returns ["a", "b"].
+// NOTE use it only on data in report files
+func PathSplit(path string, sep byte) []string {
+	return strings.Split(path, string(sep))
+}
 
-	components := make([]string, len(componentsRev))
-	for i := 0; i < len(componentsRev); i++ {
-		components[i] = componentsRev[len(componentsRev)-1-i]
-	}
-
-	return components
+// PathRestore takes components and assembles the original path
+// For example let sep be '/', then ["a", "b"] returns `a/b`.
+// NOTE use it only on data in report files
+func PathRestore(components []string, sep byte) string {
+	return strings.Join(components, string(sep))
 }
 
 // DetermineNodeType obviously determines the node type for a give file represented by its os.FileInfo

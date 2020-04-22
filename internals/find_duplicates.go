@@ -262,7 +262,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			index, _ := data.IndexOf(tail.HashValue)
 
 			// is duplicate ⇒ add to tree
-			components := PathSplit(tail.Path)
+			components := PathSplit(tail.Path, filepath.Separator)
 			currentNode := rootNode
 			for _, component := range components {
 				// traverse into correct component

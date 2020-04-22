@@ -220,6 +220,7 @@ func (c *ReportCommand) Run(w Output, log Output) (int, error) {
 	//      we need to exclude it from the walk finding all paths.
 	//      We could move file descriptor creation to a later point, but I want
 	//      to catch FS writing issues early.
+	// TODO doesn't this omit an existing file that will be overwritten?
 	c.ExcludeTree = append(c.ExcludeTree, c.Output)
 
 	fullPath, err := filepath.Abs(c.BaseNode)

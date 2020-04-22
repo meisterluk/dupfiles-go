@@ -68,6 +68,7 @@ type WalkParameters struct {
 // For directories, only the filename is hashed on basename mode.
 func HashNode(hashAlgorithm HashAlgo, basenameMode bool, basePath string, data FileData) Hash {
 	hash := hashAlgorithm.Algorithm().NewCopy()
+	// TODO does it make sense that basePath and data.Path is provided. We mostly need their joined version, right?
 
 	switch {
 	case data.Type == 'D':
@@ -406,7 +407,7 @@ func UnitHashDir(hashAlgorithm HashAlgo,
 
 	PROP:
 		for {
-			node = Dir(node)
+			node = Dir(node, filepath.Separator)
 			//log.Printf("propagation: iterate with '%s'\n", node) // TODO
 
 			// Case 1: hash value makes node complete ⇒ propagate further up
@@ -521,7 +522,7 @@ LOOP:
 		case fileData, ok := <-inputFile:
 			if ok {
 				//log.Printf("receiving hash value for file '%s'\n", fileData.Path) // TODO
-				directory := Dir(fileData.Path)
+				directory := Dir(fileData.Path, filepath.Separator)
 
 				for i := 0; i < len(incompleteDir); i++ {
 					if directory == incompleteDir[i].Path {

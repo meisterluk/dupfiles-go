@@ -120,7 +120,7 @@ func GenerateStatistics(baseNode string, ignorePermErrors bool, excludeBasename,
 		}
 
 		// handle depth
-		depth := DetermineDepth(path)
+		depth := DetermineDepth(path, filepath.Separator)
 		if depth > stats.MaxDepth {
 			stats.MaxDepth = depth
 		}

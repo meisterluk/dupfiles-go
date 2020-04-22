@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/meisterluk/dupfiles-go/internals"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -175,11 +176,11 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 			if tail.Path == match.BaseNode && (tail.NodeType == 'D' || tail.NodeType == 'L') {
 				anyFound[t] = true
 			}
-			if filepath.Dir(tail.Path) != match.BaseNode {
+			if !strings.HasPrefix(tail.Path, match.BaseNode) || internals.DetermineDepth(tail.Path, filepath.Separator)-1 != internals.DetermineDepth(match.BaseNode, filepath.Separator) {
 				continue
 			}
 
-			given := Identifier{Digest: internals.Hash(tail.HashValue).Digest(), BaseName: filepath.Base(tail.Path)}
+			given := Identifier{Digest: internals.Hash(tail.HashValue).Digest(), BaseName: internals.Base(tail.Path, filepath.Separator)}
 			value, ok := diffMatches[given]
 			if ok {
 				value[t] = true

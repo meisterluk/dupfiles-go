@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
 
 	"github.com/meisterluk/dupfiles-go/internals"
@@ -157,7 +158,7 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 		}
 
 		// consider folder depth
-		depth := internals.DetermineDepth(tail.Path)
+		depth := internals.DetermineDepth(tail.Path, filepath.Separator)
 		if depth > briefStats.MaxDepth {
 			briefStats.MaxDepth = depth
 		}
