@@ -45,6 +45,14 @@ type Match struct {
 	reportSep  byte
 }
 
+// PublishedSet stores match identifiers that have been published already.
+// The bubbling algorithm yields the same result several times.
+// This set keeps track of published matches to publish matches at most once.
+type PublishedSet struct {
+	Mutex sync.Mutex
+	Nodes []*HierarchyNode
+}
+
 // FindDuplicates finds duplicate nodes in report files. The results are sent to outChan.
 // Any errors are sent to errChan. At termination outChan and errChan are closed.
 func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan chan<- error) {
@@ -365,6 +373,10 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// Step 4: traverse tree in DFS and find highest duplicate nodes in tree to publish them
 	log.Printf("Step 4 of 4 started: traverse tree in DFS and find highest duplicate nodes\n")
 
+	// maintain a list of already published matches
+	published := new(PublishedSet)
+	published.Nodes = make([]*HierarchyNode, 0, 64)
+
 	// we visit *every node* in DFS
 	var wg sync.WaitGroup
 	for t, tree := range trees {
@@ -421,7 +433,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			wg.Add(1)
 			go func(refNode *HierarchyNode) {
 				defer wg.Done()
-				BubbleAndPublish(matches, data, outChan, hashValueSizeI)
+				BubbleAndPublish(matches, data, outChan, hashValueSizeI, published)
 				// TODO mark hash value of refNode as disabled such that these nodes are not traversed twice
 			}(refNode)
 
@@ -551,7 +563,7 @@ func MatchTree(trees []*HierarchyNode, reportFiles []string, refNode *HierarchyN
 // Bubbling is the act of exchanging matches with their parents if at least two matches
 // share the same parent. They are collected in clusters and the algorithm is called
 // recursively. A cluster is a set of nodes sharing the same digest.
-func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- DuplicateSet, hashValueSize int) {
+func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- DuplicateSet, hashValueSize int, published *PublishedSet) {
 	if len(matches) < 2 {
 		panic("internal error: there must be at least 2 matches")
 	}
@@ -560,11 +572,14 @@ func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- Duplicat
 	allAreSingletons := true
 	for _, matchData := range matches {
 		parent := (*matchData.node).parent
+		if matchData.node == parent {
+			continue
+		}
 
 		added := false
-		for _, cluster := range parentClusters {
-			if cluster[0].node.hashValueFirstByte == parent.hashValueFirstByte && cluster[0].node.hashValueIndex&1 == 1 && cluster[0].node.hashValueIndex == parent.hashValueIndex {
-				cluster = append(cluster, Match{reportFile: matchData.reportFile, node: parent})
+		for c := range parentClusters {
+			if parentClusters[c][0].node.hashValueFirstByte == parent.hashValueFirstByte && parentClusters[c][0].node.hashValueIndex&1 == 1 && parentClusters[c][0].node.hashValueIndex == parent.hashValueIndex {
+				parentClusters[c] = append(parentClusters[c], Match{reportFile: matchData.reportFile, node: parent})
 				added = true
 				allAreSingletons = false
 				break
@@ -582,7 +597,7 @@ func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- Duplicat
 
 	// none of the parent digests match ⇒ emit all && abort bubbling
 	if allAreSingletons {
-		PublishDuplicates(matches, data, outChan, hashValueSize)
+		PublishDuplicates(matches, data, outChan, hashValueSize, published)
 		return
 	}
 
@@ -594,23 +609,47 @@ func BubbleAndPublish(matches []Match, data *DigestData, outChan chan<- Duplicat
 		}
 	}
 	if anySingletons {
-		PublishDuplicates(matches, data, outChan, hashValueSize)
+		PublishDuplicates(matches, data, outChan, hashValueSize, published)
 	}
 
 	// recurse clusters with 2 or more nodes
 	for i := 0; i < len(parentClusters); i++ {
 		if len(parentClusters[i]) >= 2 {
-			BubbleAndPublish(parentClusters[i], data, outChan, hashValueSize)
+			BubbleAndPublish(parentClusters[i], data, outChan, hashValueSize, published)
 		}
 	}
 }
 
 // PublishDuplicates takes matches, evaluates these matches' nodes and sends it to
 // outChan where it will be considered as duplicates.
-func PublishDuplicates(matches []Match, data *DigestData, outChan chan<- DuplicateSet, hashValueSize int) {
+func PublishDuplicates(matches []Match, data *DigestData, outChan chan<- DuplicateSet, hashValueSize int, published *PublishedSet) {
 	if len(matches) == 0 {
 		panic("internal error: matches is empty")
 	}
+
+	// has this match been published already?
+	nodeWithSmallestBasename := matches[0].node
+	refBaseName := matches[0].node.basename
+	for m := range matches[1:] {
+		// NOTE "smallest basename" is an arbitrary criterion.
+		//   we could store the entire Match element in PublishedSet.
+		//   but to save memory, it suffices to store only some node pointer.
+		if matches[m].node.basename < refBaseName {
+			refBaseName = matches[m].node.basename
+			nodeWithSmallestBasename = matches[m].node
+		}
+	}
+
+	// if so, then return
+	published.Mutex.Lock()
+	for i := range published.Nodes {
+		if published.Nodes[i] == nodeWithSmallestBasename {
+			published.Mutex.Unlock()
+			return
+		}
+	}
+	published.Nodes = append(published.Nodes, nodeWithSmallestBasename)
+	published.Mutex.Unlock()
 
 	// collect digest
 	hashValue := data.Hash(matches[1].node.hashValueFirstByte, int(matches[1].node.hashValueIndex>>1)) // TODO why “[1]” though?
