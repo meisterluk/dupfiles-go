@@ -14,6 +14,11 @@ import (
 type FindJSONResult struct {
 	ReportFile string `json:"report"`
 	Path       string `json:"path"`
+	Digest     string `json:"digest,omitempty"`
+	NodeType   string `json:"type,omitempty"`
+	FileSize   uint64 `json:"size,omitempty"`
+	LineNo     uint64 `json:"line-number,omitempty"`
+	ByteNo     uint64 `json:"byte-offset,omitempty"`
 }
 
 // CLIFindCommand defined the CLI arguments as kingpin requires them
@@ -23,6 +28,7 @@ type CLIFindCommand struct {
 	Overwrite        *bool
 	Output           *string
 	ResultByExitcode *bool
+	Long             *bool
 	ConfigOutput     *bool
 	JSONOutput       *bool
 }
@@ -36,6 +42,7 @@ func NewCLIFindCommand(app *kingpin.Application) *CLIFindCommand {
 	c.Overwrite = c.cmd.Flag("overwrite", "if filepath already exists, overwrite it without asking").Bool()
 	c.Output = c.cmd.Flag("output", "write duplication results to file, not to stdout").Short('o').Default(EnvOr("DUPFILES_OUTPUT", "report.dup")).String()
 	c.ResultByExitcode = c.cmd.Flag("result-by-exitcode", "use exit code 42 on success and if at least one duplicate was found").Bool()
+	c.Long = c.cmd.Flag("long", "reread report file to provide more data for each duplicate found").Short('l').Bool()
 	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
 	c.JSONOutput = c.cmd.Flag("json", "return output as JSON, not as plain text").Bool()
 
@@ -57,6 +64,7 @@ func (c *CLIFindCommand) Validate() (*FindCommand, error) {
 	cmd.Overwrite = *c.Overwrite
 	cmd.Output = *c.Output
 	cmd.ResultByExitcode = *c.ResultByExitcode
+	cmd.Long = *c.Long
 	cmd.ConfigOutput = *c.ConfigOutput
 	cmd.JSONOutput = *c.JSONOutput
 
@@ -70,6 +78,10 @@ func (c *CLIFindCommand) Validate() (*FindCommand, error) {
 	if errOverwrite == nil {
 		cmd.Overwrite = envOverwrite
 	}
+	envLong, errLong := EnvToBool("DUPFILES_LONG")
+	if errLong == nil {
+		cmd.Long = envLong
+	}
 
 	return cmd, nil
 }
@@ -80,6 +92,7 @@ type FindCommand struct {
 	Overwrite        bool     `json:"overwrite"`
 	Output           string   `json:"output"`
 	ResultByExitcode bool     `json:"result-by-exitcode"`
+	Long             bool     `json:"long"`
 	ConfigOutput     bool     `json:"config"`
 	JSONOutput       bool     `json:"json"`
 	Help             bool     `json:"help"`
@@ -138,6 +151,8 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 						Path:       equiv.Path,
 					})
 				}
+
+				// TODO reread file if long
 
 				// marshal to JSON
 				jsonDump, err := json.Marshal(&entries)
