@@ -313,16 +313,14 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			components := make([]string, 16)
 			currentNode := node
 			for {
-				components = append(components, node.basename)
 				if currentNode == currentNode.parent {
 					break
 				}
+				components = append(components, node.basename)
 				currentNode = currentNode.parent
 			}
-			if len(fullPath) > 0 {
-				ReverseStringSlice(components)
-				fullPath = PathRestore(components, sep)
-			}
+			ReverseStringSlice(components)
+			fullPath = PathRestore(components, sep)
 			panic(fmt.Sprintf("node '%s' is missing in reportFile '%s'", fullPath, reportFile))
 		}
 		// traverse into children
@@ -336,6 +334,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 	// TODO just debug information
 	data.Dump()
+
 	var dumpTree func(*HierarchyNode, *DigestData, int)
 	dumpTree = func(node *HierarchyNode, data *DigestData, indent int) {
 		identation := strings.Repeat("  ", indent)
@@ -353,11 +352,14 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			dumpTree(&node.children[c], data, indent+1)
 		}
 	}
+
+	// TODO just debug information
 	for i := range trees {
 		log.Println("<tree>")
 		dumpTree(trees[i], data, 0)
 		log.Println("</tree>")
 	}
+
 	log.Printf("Step 3 of 4 finished: filesystem tree of duplicates was built\n")
 
 	// Step 4: traverse tree in DFS and find highest duplicate nodes in tree to publish them
