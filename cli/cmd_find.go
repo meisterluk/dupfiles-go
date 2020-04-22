@@ -125,6 +125,10 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 		defer wg.Done()
 
 		if c.JSONOutput {
+			w.Println(`{`)
+
+			w.Println(`  "duplicates": [`)
+			var previousJSON string
 			for entry := range dupEntries {
 				// prepare data structure
 				entries := make([]FindJSONResult, 0, len(entry.Set))
@@ -143,19 +147,25 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 					continue
 				}
 
-				w.Println(string(jsonDump))
+				if previousJSON != "" {
+					w.Println(string(previousJSON) + ",")
+				}
+				// NOTE previousJSON exists because JSON does not allow trailing commas
+				//   in arrays, e.g. `[{}, {}, {},]` is invalid. Thus we need to make sure
+				//   the final object is printed without comma.
+				previousJSON = string(jsonDump)
 			}
+			w.Println(string(previousJSON))
+			w.Println(`  ]`)
+			w.Println(`}`)
 
 		} else {
 			for entry := range dupEntries {
-				//log.Println("<duplicates>")
 				out := internals.Hash(entry.HashValue).Digest() + "\n"
 				for _, s := range entry.Set {
 					out += `  ` + s.ReportFile + "\t→ " + s.Path + "\n"
 				}
-				w.Println(out) // TODO or c.Output
-				// TODO json output support
-				//log.Println("</duplicates>")
+				w.Println(out)
 			}
 		}
 	}()
