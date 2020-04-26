@@ -10,7 +10,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// SizeEntry represents a Top10MaxSizeFiles entry
+// SizeEntry represents a FilesOfMaxSize entry
 type SizeEntry struct {
 	Path string `json:"path"`
 	Size uint64 `json:"size"`
@@ -29,15 +29,17 @@ type BriefReportStatistics struct {
 		NodeName      string    `json:"node-name"`
 		BasePath      string    `json:"base-path"`
 	} `json:"head"`
-	NumUNIXDeviceFile   uint32        `json:"count-unix-device"`
-	NumDirectory        uint32        `json:"count-directory"`
-	NumRegularFile      uint32        `json:"count-regular-file"`
-	NumLink             uint32        `json:"count-link"`
-	NumFIFOPipe         uint32        `json:"count-fifo-pipe"`
-	NumUNIXDomainSocket uint32        `json:"count-unix-socket"`
-	MaxDepth            uint16        `json:"fs-depth-max"`
-	TotalSize           uint64        `json:"fs-size-total"`
-	Top10MaxSizeFiles   [10]SizeEntry `json:"files-size-max-top10"`
+	TotalCount struct {
+		NumUNIXDeviceFile   uint32 `json:"unix-device"`
+		NumDirectory        uint32 `json:"directory"`
+		NumRegularFile      uint32 `json:"regular-file"`
+		NumLink             uint32 `json:"link"`
+		NumFIFOPipe         uint32 `json:"fifo-pipe"`
+		NumUNIXDomainSocket uint32 `json:"unix-socket"`
+	} `json:"total-count"`
+	MaxDepth        uint16        `json:"max-fsdepth"`
+	AccumulatedSize uint64        `json:"sum-size"`
+	FilesOfMaxSize  [10]SizeEntry `json:"max-size-files"`
 }
 
 // LongReportStatistics contains statistics collected from
@@ -144,17 +146,17 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 		// consider node type
 		switch tail.NodeType {
 		case 'D':
-			briefStats.NumDirectory++
+			briefStats.TotalCount.NumDirectory++
 		case 'C':
-			briefStats.NumUNIXDeviceFile++
+			briefStats.TotalCount.NumUNIXDeviceFile++
 		case 'F':
-			briefStats.NumRegularFile++
+			briefStats.TotalCount.NumRegularFile++
 		case 'L':
-			briefStats.NumLink++
+			briefStats.TotalCount.NumLink++
 		case 'P':
-			briefStats.NumFIFOPipe++
+			briefStats.TotalCount.NumFIFOPipe++
 		case 'S':
-			briefStats.NumUNIXDomainSocket++
+			briefStats.TotalCount.NumUNIXDomainSocket++
 		default:
 			return 9, fmt.Errorf(`unknown node type '%c'`, tail.NodeType)
 		}
@@ -166,25 +168,25 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 		}
 
 		// consider size
-		briefStats.TotalSize += tail.FileSize
-		oldTotalSize := briefStats.TotalSize
-		if oldTotalSize > briefStats.TotalSize {
-			return 11, fmt.Errorf(`total-size overflowed from %d to %d`, oldTotalSize, briefStats.TotalSize)
+		briefStats.AccumulatedSize += tail.FileSize
+		oldAccumulatedSize := briefStats.AccumulatedSize
+		if oldAccumulatedSize > briefStats.AccumulatedSize {
+			return 11, fmt.Errorf(`total-size overflowed from %d to %d`, oldAccumulatedSize, briefStats.AccumulatedSize)
 		}
 
 		for i := 0; i < 10; i++ {
 			if tail.NodeType == 'D' {
 				continue
 			}
-			if briefStats.Top10MaxSizeFiles[i].Size > tail.FileSize {
+			if briefStats.FilesOfMaxSize[i].Size > tail.FileSize {
 				continue
 			}
-			tmp := briefStats.Top10MaxSizeFiles[i]
-			briefStats.Top10MaxSizeFiles[i].Size = tail.FileSize
-			briefStats.Top10MaxSizeFiles[i].Path = tail.Path
+			tmp := briefStats.FilesOfMaxSize[i]
+			briefStats.FilesOfMaxSize[i].Size = tail.FileSize
+			briefStats.FilesOfMaxSize[i].Path = tail.Path
 			for j := i + 1; j < 10; j++ {
-				tmp2 := briefStats.Top10MaxSizeFiles[j]
-				briefStats.Top10MaxSizeFiles[j] = tmp
+				tmp2 := briefStats.FilesOfMaxSize[j]
+				briefStats.FilesOfMaxSize[j] = tmp
 				tmp = tmp2
 			}
 			break
