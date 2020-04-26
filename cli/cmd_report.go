@@ -262,6 +262,7 @@ func (c *ReportCommand) Run(w Output, log Output) (int, error) {
 	err, ok := <-errChan
 	if ok {
 		// TODO proper exit code required
+		// TODO JSON output support
 		return 6, err
 	}
 

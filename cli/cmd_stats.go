@@ -212,6 +212,7 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 	out.Long = longStats
 
 	if c.JSONOutput {
+		// TODO plain text output
 		jsonRepr, err := json.Marshal(&out)
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)
