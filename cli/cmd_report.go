@@ -5,10 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/meisterluk/dupfiles-go/internals"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
+
+var nonSenseBaseNodeName *regexp.Regexp
+
+// init initializes regular expressions
+func init() {
+	nonSenseBaseNodeName = regexp.MustCompile(`\.+$`)
+}
 
 // ReportJSONResult is a struct used to serialize JSON output
 type ReportJSONResult struct {
@@ -142,6 +150,13 @@ func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 	// default values
 	if cmd.BaseNodeName == "" {
 		cmd.BaseNodeName = filepath.Base(cmd.BaseNode)
+		if nonSenseBaseNodeName.FindString(cmd.BaseNodeName) != "" {
+			abs, err := filepath.Abs(cmd.BaseNode)
+			if err != nil {
+				return nil, fmt.Errorf(`failed to determine absolute path of '%s': %s`, cmd.BaseNode, err)
+			}
+			cmd.BaseNodeName = filepath.Base(abs)
+		}
 	}
 	if !cmd.DFS && !cmd.BFS {
 		cmd.DFS = true
@@ -151,15 +166,7 @@ func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 	}
 
 	if cmd.Output == "" {
-		abs, err := filepath.Abs(cmd.BaseNode)
-		if err != nil {
-			return nil, fmt.Errorf(`failed to determine absolute path of '%s': %s`, cmd.BaseNode, err)
-		}
-		if cmd.BaseNodeName == "" {
-			cmd.Output = filepath.Base(abs) + ".fsr"
-		} else {
-			cmd.Output = cmd.BaseNodeName + ".fsr"
-		}
+		cmd.Output = cmd.BaseNodeName + ".fsr"
 	}
 
 	// validity check 2
