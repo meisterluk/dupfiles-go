@@ -20,13 +20,15 @@ type SizeEntry struct {
 // a report file and only requires single-pass parsing and
 // constant memory to evaluate those statistics
 type BriefReportStatistics struct {
-	HeadVersion         [3]uint16     `json:"head-version"`
-	HeadTimestamp       time.Time     `json:"head-timestamp"`
-	HeadHashAlgorithm   string        `json:"head-hash-algorithm"`
-	HeadBasenameMode    bool          `json:"head-basename-mode"`
-	HeadSeparator       string        `json:"head-separator`
-	HeadNodeName        string        `json:"head-node-name"`
-	HeadBasePath        string        `json:"head-base-path"`
+	Head struct {
+		Version       [3]uint16 `json:"version"`
+		Timestamp     time.Time `json:"timestamp"`
+		HashAlgorithm string    `json:"hash-algorithm"`
+		BasenameMode  bool      `json:"basename-mode"`
+		Separator     string    `json:"separator"`
+		NodeName      string    `json:"node-name"`
+		BasePath      string    `json:"base-path"`
+	} `json:"head"`
 	NumUNIXDeviceFile   uint32        `json:"count-unix-device"`
 	NumDirectory        uint32        `json:"count-directory"`
 	NumRegularFile      uint32        `json:"count-regular-file"`
@@ -190,13 +192,13 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 	}
 
 	// report Head data
-	briefStats.HeadVersion = rep.Head.Version
-	briefStats.HeadTimestamp = rep.Head.Timestamp
-	briefStats.HeadHashAlgorithm = rep.Head.HashAlgorithm
-	briefStats.HeadBasenameMode = rep.Head.BasenameMode
-	briefStats.HeadSeparator = string(rep.Head.Separator)
-	briefStats.HeadNodeName = rep.Head.NodeName
-	briefStats.HeadBasePath = rep.Head.BasePath
+	briefStats.Head.Version = rep.Head.Version
+	briefStats.Head.Timestamp = rep.Head.Timestamp
+	briefStats.Head.HashAlgorithm = rep.Head.HashAlgorithm
+	briefStats.Head.BasenameMode = rep.Head.BasenameMode
+	briefStats.Head.Separator = string(rep.Head.Separator)
+	briefStats.Head.NodeName = rep.Head.NodeName
+	briefStats.Head.BasePath = rep.Head.BasePath
 
 	var longStats LongReportStatistics
 	if c.Long {
