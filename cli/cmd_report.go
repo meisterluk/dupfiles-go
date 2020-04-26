@@ -151,8 +151,12 @@ func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 	}
 
 	if cmd.Output == "" {
-		if cmd.BaseNodeName == "." || cmd.BaseNodeName == "" {
-			cmd.Output = "report.fsr"
+		abs, err := filepath.Abs(cmd.BaseNode)
+		if err != nil {
+			return nil, fmt.Errorf(`failed to determine absolute path of '%s': %s`, cmd.BaseNode, err)
+		}
+		if cmd.BaseNodeName == "" {
+			cmd.Output = filepath.Base(abs) + ".fsr"
 		} else {
 			cmd.Output = cmd.BaseNodeName + ".fsr"
 		}
