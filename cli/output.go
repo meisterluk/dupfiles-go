@@ -18,10 +18,12 @@ type PlainOutput struct {
 	device io.Writer
 }
 
+// Print writes text to this output stream
 func (o *PlainOutput) Print(text string) (int, error) {
 	return o.device.Write([]byte(text))
 }
 
+// Println writes text and a line break to this output stream
 func (o *PlainOutput) Println(text string) (int, error) {
 	n1, err1 := o.device.Write([]byte(text))
 	if err1 != nil {
@@ -31,10 +33,14 @@ func (o *PlainOutput) Println(text string) (int, error) {
 	return n1 + n2, err2
 }
 
+// Printf writes text to this output stream and the text is generated
+// by applying args to the given format string.
 func (o *PlainOutput) Printf(format string, args ...interface{}) (int, error) {
 	return o.device.Write([]byte(fmt.Sprintf(format, args...)))
 }
 
+// Printfln writes text and a line break to this output stream and the text is generated
+// by applying args to the given format string.
 func (o *PlainOutput) Printfln(format string, args ...interface{}) (int, error) {
 	return o.device.Write([]byte(fmt.Sprintf(format+"\n", args...)))
 }
