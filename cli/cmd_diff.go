@@ -153,7 +153,7 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 	type match []bool
 	type matches map[Identifier]match
 
-	// use the first set to determine the set
+	// use the first set to determine the entire set
 	diffMatches := make(matches)
 	anyFound := make([]bool, len(c.Targets))
 	for t, match := range c.Targets {

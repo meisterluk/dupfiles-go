@@ -122,6 +122,10 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 	errChan := make(chan error)
 	dupEntries := make(chan internals.DuplicateSet)
 
+	// TODO log number of duplicates
+	// TODO log number of duplicate sets
+	// TODO --result-by-exitcode
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -152,7 +156,7 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 					})
 				}
 
-				// TODO reread file if long
+				// TODO reread file if --long
 
 				// marshal to JSON
 				jsonDump, err := json.Marshal(&entries)

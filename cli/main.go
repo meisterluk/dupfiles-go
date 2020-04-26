@@ -209,18 +209,6 @@ func main() {
 	logOutput := PlainOutput{device: os.Stderr}
 
 	exitcode, jsonOutput, err := RunCLI(os.Args[1:], &output, &logOutput)
-	// TODO update design document for the following exit codes
-	//   1 → I/O error when reading a file like "file does not exist"
-	//   2 → I/O error when writing a file like "could not create file"
-	//   3 → I/O error “file exists already” but --overwrite is not specified
-	//   4 → I/O error if a file system cycle is detected (currently not checked/triggered)
-	//   5 → I/O error if the source file is not UTF-8 encoded (currently not checked/triggered)
-	//   6 → I/O error for generic/other cases like "serializing data to JSON failed"
-	//   7 → CLI error if some argument is missing or CLI is incorrect
-	//   8 → value error if some CLI argument has some invalid content
-	//   9 → value error if some report file contains invalid content
-	//   10 → command line was invalid, like argument type or missing required argument
-	//   11 → internal programming error - please report me! (assertion/invariant failed)
 	// TODO verify that all input files are properly UTF-8 encoded ⇒ output if properly UTF-8 encoded
 
 	if err == nil {
@@ -242,7 +230,7 @@ func main() {
 			// ignore return value intentionally, as we cannot do anything about it
 			logOutput.Printfln(`error (exitcode=%d) was thrown: %s`, exitcode, err.Error())
 			logOutput.Printfln(`but I failed to create a response in JSON`)
-			output.Println(`{"error":"could not encode error message as JSON","exitcode":2}`)
+			output.Println(`{"error":"could not encode error message as JSON","exitcode":6}`)
 			exitcode = 6
 		} else {
 			output.Println(string(jsonRepr))

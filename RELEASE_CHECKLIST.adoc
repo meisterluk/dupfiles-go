@@ -23,3 +23,17 @@ Concurrency checks
 • WaitGroup.Add(n) is always called before generating the goroutine
 • if one goroutine B waits for data of another goroutine A, we need to make sure that A does not terminate prematurely without stopping operation of B
 
+Generic exit codes
+------------------
+
+* 0 on success
+* 1 on I/O error when reading a file like “file does not exist”
+* 2 on I/O error when writing a file like “could not create file”
+* 3 on I/O error “file exists already” but --overwrite is not specified
+* 4 on I/O error if a file system cycle is detected (currently not checked/triggered)
+* 5 on I/O error if the source file is not UTF-8 encoded (currently not checked/triggered)
+* 6 on I/O error for generic/other cases like “serializing data to JSON failed”
+* 7 on CLI error if some argument is missing or CLI is incorrect
+* 8 on CLI error if some CLI argument has some invalid content like an unknown hash algorithm
+* 9 on value error if some report file contains invalid content
+* 10 on internal programming error - please report me! (assertion/invariant failed)

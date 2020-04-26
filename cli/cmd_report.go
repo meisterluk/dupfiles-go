@@ -225,7 +225,7 @@ func (c *ReportCommand) Run(w Output, log Output) (int, error) {
 	// create report
 	rep, err := internals.NewReportWriter(c.Output)
 	if err != nil {
-		return 2, fmt.Errorf(`error writing file '%s': %s`, c.Output, err)
+		return 2, fmt.Errorf(`error creating file '%s': %s`, c.Output, err)
 	}
 	// NOTE since we create a file descriptor for the output file here already,
 	//      we need to exclude it from the walk finding all paths.

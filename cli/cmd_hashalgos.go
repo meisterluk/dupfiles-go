@@ -11,8 +11,11 @@ import (
 // HashAlgosJSONResult is a struct used to serialize JSON output
 // TODO report default algorithm
 type HashAlgosJSONResult struct {
-	CheckSucceeded bool     `json:"check-result"`
-	SupHashAlgos   []string `json:"supported-hash-algorithms"`
+	Check struct {
+		Query     string `json:"query"`
+		Supported bool   `json:"is-supported"`
+	} `json:"support-check,omitempty"`
+	SupHashAlgos []string `json:"supported-hash-algorithms"`
 }
 
 // CLIHashAlgosCommand defines the CLI arguments as kingpin requires them
@@ -78,14 +81,14 @@ func (c *HashAlgosCommand) Run(w Output, log Output) (int, error) {
 	}
 
 	data := HashAlgosJSONResult{
-		CheckSucceeded: false,
-		SupHashAlgos:   internals.HashAlgos{}.Names(),
+		SupHashAlgos: internals.HashAlgos{}.Names(),
 	}
 
 	if c.CheckSupport != "" {
+		data.Check.Query = c.CheckSupport
 		for _, h := range (internals.HashAlgos{}.Names()) {
 			if h == c.CheckSupport {
-				data.CheckSucceeded = true
+				data.Check.Supported = true
 			}
 		}
 	}
@@ -104,5 +107,8 @@ func (c *HashAlgosCommand) Run(w Output, log Output) (int, error) {
 		w.Println(string(jsonRepr))
 	}
 
+	if c.CheckSupport != "" && !data.Check.Supported {
+		return 100, nil
+	}
 	return 0, nil
 }
