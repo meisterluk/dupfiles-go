@@ -53,6 +53,21 @@ func ReverseStringSlice(slice []string) {
 	}
 }
 
+// StringsSet reduces args to unique elements
+func StringsSet(args []string) []string {
+	results := make([]string, 0, len(args))
+outer:
+	for i := range args {
+		for j := 0; j < i; j++ {
+			if args[i] == args[j] {
+				continue outer
+			}
+		}
+		results = append(results, args[i])
+	}
+	return results
+}
+
 // ByteEncode implements the byte encoding defined in the design document
 func ByteEncode(basename string) string {
 	if utf8.ValidString(basename) {
@@ -169,14 +184,14 @@ func Dir(path string, sep byte) string {
 // Base returns the last component of a given filepath.
 // NOTE use it only on data in report files
 func Base(path string, sep byte) string {
-	index := len(path)
+	index := len(path) - 1
 	for index > 0 && path[index] != sep {
 		index--
 	}
 	if index == 0 {
 		return path
 	}
-	return path[index:len(path)]
+	return path[index+1 : len(path)]
 }
 
 // PathSplit takes a filesystem path and splits it into individual components
@@ -216,9 +231,9 @@ func DetermineNodeType(stat os.FileInfo) byte {
 	return 'X'
 }
 
-// XORByteSlices takes byte slices x and y and updates x with x xor y.
+// XORByteSlices takes Hash x and y and updates x with x xor y.
 // NOTE assumes x and y have same length.
-func XORByteSlices(x, y []byte) {
+func XORByteSlices(x, y Hash) {
 	for i := 0; i < len(x); i++ {
 		x[i] = x[i] ^ y[i]
 	}
