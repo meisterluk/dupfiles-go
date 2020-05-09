@@ -22,25 +22,67 @@ func TestContains(t *testing.T) {
 
 func TestEqStringSlices(t *testing.T) {
 	if EqStringSlices([]string{"foo", "bar"}, []string{"foo"}) {
-		t.Errorf("[foo, bar] does equal [foo]")
+		t.Errorf("[foo, bar] equals [foo]? Expected no, got yes")
 	}
 
 	if EqStringSlices([]string{"", "abc"}, []string{"abc", ""}) {
-		t.Errorf("['', abc] does equal [abc, '']")
+		t.Errorf("['', abc] equals [abc, '']? Expected no, got yes")
 	}
 
 	if !EqStringSlices([]string{"foo", "bar"}, []string{"foo", "bar"}) {
-		t.Errorf("[foo, bar] does equal [foo, bar]")
+		t.Errorf("[foo, bar] equals [foo, bar]? Expected yes, got no")
 	}
 }
 
 func TestEqByteSlices(t *testing.T) {
 	if !EqByteSlices([]byte("bar"), []byte("bar")) {
-		t.Errorf("bar equals bar")
+		t.Errorf(`"bar" equals "bar"? Expected yes, got no`)
 	}
 
 	if EqByteSlices([]byte{'\x00'}, []byte("foo")) {
-		t.Errorf(`\x00 does not equal foo`)
+		t.Errorf(`\x00 equals "foo"? Expected no, got yes`)
+	}
+}
+
+func TestReverseStringSlice(t *testing.T) {
+	empty := []string{}
+	a := []string{"a"}
+	ab := []string{"a", "b"}
+	abc := []string{"a", "b", "c"}
+	abcd := []string{"a_", "b_", "c_", "d_"}
+
+	ReverseStringSlice(empty)
+	ReverseStringSlice(a)
+	ReverseStringSlice(ab)
+	ReverseStringSlice(abc)
+	ReverseStringSlice(abcd)
+
+	if !EqStringSlices(empty, []string{}) {
+		t.Errorf(`reversed([]) == []? Expected yes, got no`)
+	}
+	if !EqStringSlices(a, []string{"a"}) {
+		t.Errorf(`reversed(["a"}) == ["a"}? Expected yes, got no`)
+	}
+	if !EqStringSlices(ab, []string{"b", "a"}) {
+		t.Errorf(`reversed(["a", "b"]) == []? Expected yes, got no`)
+	}
+	if !EqStringSlices(abc, []string{"c", "b", "a"}) {
+		t.Errorf(`reversed(["a", "b", "c"]) == ["c", "b", "a"]? Expected yes, got no`)
+	}
+	if !EqStringSlices(abcd, []string{"d_", "c_", "b_", "a_"}) {
+		t.Errorf(`Expected ["d_", "c_", "b_", "a_"], got %v`, abcd)
+	}
+}
+
+func TestStringsSet(t *testing.T) {
+	if !EqStringSlices(StringsSet([]string{"a", "b"}), []string{"a", "b"}) {
+		t.Errorf(`StringsSet(["a", "b"]) == ["a", "b"]? Expected yes, got no`)
+	}
+	if !EqStringSlices(StringsSet([]string{"a", "b", "a"}), []string{"a", "b"}) {
+		t.Errorf(`StringsSet(["a", "b", "a"]) == ["a", "b"]? Expected yes, got no`)
+	}
+	if !EqStringSlices(StringsSet([]string{"a", "b", "a", "b"}), []string{"a", "b"}) {
+		t.Errorf(`StringsSet(["a", "b", "a", "b"]) == ["a", "b"]? Expected yes, got no`)
 	}
 }
 
@@ -109,18 +151,57 @@ func TestDetermineDepth(t *testing.T) {
 		`d/c/b/a`: 3,
 	}
 	for path, expected := range data {
-		if DetermineDepth(path) != expected {
-			t.Errorf(`expected depth of %v is %d, got %d`, path, expected, DetermineDepth(path))
+		if DetermineDepth(path, '/') != expected {
+			t.Errorf(`expected depth of %v is %d, got %d`, path, expected, DetermineDepth(path, '/'))
 		}
 	}
 }
 
+func TestDir(t *testing.T) {
+	if Dir("hello/world", '/') != "hello" {
+		t.Errorf(`Dir("hello/world", '/') equals "hello"? Expected yes, got no`)
+	}
+	if Dir("a/b/c/d/", '/') != "a/b/c/d" {
+		t.Errorf(`Dir("a/b/c/d/", '/') equals "a/b/c/d"? Expected yes, got no`)
+	}
+}
+
+func TestBase(t *testing.T) {
+	if Base("hello/world", '/') != "world" {
+		t.Errorf(`Base("hello/world", '/') equals "world"? Expected yes, got no`)
+	}
+	if Base("a/b/c/d/", '/') != "" {
+		t.Errorf(`Base("a/b/c/d/", '/') equals ""? Expected yes, got no`)
+	}
+}
+
+func TestPathSplit(t *testing.T) {
+	if !EqStringSlices(PathSplit("hello/world", '/'), []string{"hello", "world"}) {
+		t.Errorf(`PathSplit("hello/world", '/') equals ["hello", "world"]? Expected yes, got no`)
+	}
+	if !EqStringSlices(PathSplit("a/b", '/'), []string{"a", "b"}) {
+		t.Errorf(`PathSplit("a/b", '/') equals ["a", "b"]? Expected yes, got no`)
+	}
+	if EqStringSlices(PathSplit("/a/b", '/'), []string{"a", "b"}) {
+		t.Errorf(`PathSplit("/a/b", '/') equals ["a", "b"]? Expected no, got yes`)
+	}
+}
+
+func TestPathRestore(t *testing.T) {
+	if PathRestore([]string{"a", "b"}, '/') != "a/b" {
+		t.Errorf(`PathRestore(["a", "b"], '/') equals "a/b"? Expected yes, got no`)
+	}
+	if PathRestore([]string{"", "a", "b"}, '/') != "/a/b" {
+		t.Errorf(`PathRestore(["", "a", "b"], '/') equals "/a/b"? Expected yes, got no`)
+	}
+}
+
 func TestXORByteSlices(t *testing.T) {
-	tests := [][3][]byte{
-		[3][]byte{[]byte{}, []byte{}, []byte{}},
-		[3][]byte{[]byte{1}, []byte{2}, []byte{3}},
-		[3][]byte{[]byte{0x42, 0x99}, []byte{0x16, 0x09}, []byte{0x54, 0x90}},
-		[3][]byte{[]byte{1, 4, 2}, []byte{4, 1, 16}, []byte{5, 5, 18}},
+	tests := [][3]Hash{
+		[3]Hash{Hash{}, Hash{}, Hash{}},
+		[3]Hash{Hash{1}, Hash{2}, Hash{3}},
+		[3]Hash{Hash{0x42, 0x99}, Hash{0x16, 0x09}, Hash{0x54, 0x90}},
+		[3]Hash{Hash{1, 4, 2}, Hash{4, 1, 16}, Hash{5, 5, 18}},
 	}
 
 	for _, test := range tests {

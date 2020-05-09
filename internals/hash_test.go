@@ -5,12 +5,31 @@ import (
 	"testing"
 )
 
-func TestSupportedHashAlgorithms(t *testing.T) {
-	algos := SupportedHashAlgorithms()
+func TestAllHashAlgosDefined(t *testing.T) {
+	names := make([]string, 0, 16)
+	for i := 0; i < CountHashAlgos; i++ {
+		h := HashAlgo(i)
+		if !Contains(names, h.Instance().Name()) {
+			names = append(names, h.Instance().Name())
+		}
+	}
+	if len(names) != CountHashAlgos {
+		t.Errorf(`Expected %d distinctive names, got %v`, CountHashAlgos, names)
+	}
+}
+
+func TestRequiredHashAlgos(t *testing.T) {
 	required := []string{`crc64`, `fnv-1a-32`, `fnv-1a-128`, `sha-256`, `sha-512`, `sha-3-512`}
-	for _, requiredAlgo := range required {
-		if !Contains(algos, requiredAlgo) {
-			t.Errorf(`Expected required hash algo %s, but is not supported`, requiredAlgo)
+
+	supported := make([]string, 0, 16)
+	for i := 0; i < CountHashAlgos; i++ {
+		h := HashAlgo(i)
+		supported = append(supported, h.Instance().Name())
+	}
+
+	for _, req := range required {
+		if !Contains(supported, req) {
+			t.Errorf(`Hash algorithm '%s' unsupported, but support is required`, req)
 		}
 	}
 }
@@ -34,7 +53,7 @@ func TestExampleBasenameModeFileHashes(t *testing.T) {
 		HashSHAKE256_64: `0cbbb0b3b0f718ea5ae2b590cd3f27b6253e8cb375dcd04fb9542b7698ef22184f4787feccf0031e499ee6f85da8a0930e7b48d26804b24b51f78b84c0ff3d2bf9498faadd9032d8caacfad3470f4b8d8306025e4bd32bec39d9f06cd4ea8fa351f1f47f89110b496bf58771a179b6cdc71f5f5c50534d0ad46f67ecdd7a1768`,
 	}
 	for hash, digest := range data {
-		h := hash.Algorithm()
+		h := hash.Instance()
 		err := h.ReadBytes([]byte{
 			'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 't', 'x', 't', 0x1f,
 			0x64, 0x75, 0x70, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x20, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74,
@@ -45,9 +64,9 @@ func TestExampleBasenameModeFileHashes(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		actual := h.HexDigest()
+		actual := h.Hash().Digest()
 		if digest != actual {
-			t.Errorf(`digest for example.txt in basename mode incorrect (%s): expected %s, got %s`, hash, digest, actual)
+			t.Errorf(`digest for example.txt in basename mode incorrect (%s): expected %s, got %s`, hash.Instance().Name(), digest, actual)
 		}
 	}
 }
@@ -71,7 +90,7 @@ func TestExampleEmptyModeFileHashes(t *testing.T) {
 		HashSHAKE256_64: `11797e0d409ed892bda314a0ada2b9dad31b95f4f77c126a0f4de480bd45b98ade12a00b53c3755cfe7251d35ee88677b13632f7555a3bcc398e9d90b11f37fe9bef7cf75ec2e97dafe9a70acf625fdcaa4f92891346f783e25f026423e687e8905c36174fc5af2628a84bbf4c975024970b48789790c8dd054c930d519500c7`,
 	}
 	for hash, digest := range data {
-		h := hash.Algorithm()
+		h := hash.Instance()
 		err := h.ReadBytes([]byte{
 			0x64, 0x75, 0x70, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x20, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74,
 			0x65, 0x73, 0x20, 0x72, 0xce, 0xb5, 0x70, 0x6f, 0x72, 0x74, 0x73, 0x0a, 0xf0, 0x9f, 0x98, 0x8a,
@@ -81,9 +100,9 @@ func TestExampleEmptyModeFileHashes(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		actual := h.HexDigest()
+		actual := h.Hash().Digest()
 		if digest != actual {
-			t.Errorf(`digest for example.txt in empty mode incorrect (%s): expected %s, got %s`, hash, digest, actual)
+			t.Errorf(`digest for example.txt in empty mode incorrect (%s): expected %s, got %s`, hash.Instance().Name(), digest, actual)
 		}
 	}
 }
@@ -111,7 +130,7 @@ func TestExampleBasenameModeFolderHashes(t *testing.T) {
 		// ./folder/a.txt
 		// ./folder/b.txt
 
-		f1 := hash.Algorithm()
+		f1 := hash.Instance()
 		err := f1.ReadBytes([]byte{
 			'a', '.', 't', 'x', 't', 0x1f,
 			0x64, 0x75, 0x70, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x20, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74,
@@ -121,9 +140,9 @@ func TestExampleBasenameModeFolderHashes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		hashA := f1.Digest()
+		hashA := f1.Hash()
 
-		f2 := hash.Algorithm()
+		f2 := hash.Instance()
 		err = f2.ReadBytes([]byte{
 			'b', '.', 't', 'x', 't', 0x1f,
 			0x64, 0x75, 0x70, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x20, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74,
@@ -133,21 +152,21 @@ func TestExampleBasenameModeFolderHashes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		hashB := f2.Digest()
+		hashB := f2.Hash()
 
-		f := hash.Algorithm()
+		f := hash.Instance()
 		err = f.ReadBytes([]byte("folder"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		hashF := f.Digest()
+		hashF := f.Hash()
 
 		XORByteSlices(hashF, hashA)
 		XORByteSlices(hashF, hashB)
 
 		actual := hex.EncodeToString(hashF)
 		if actual != digest {
-			t.Errorf(`digest for example folder incorrect (%s): expected %s, got %s`, hash, digest, actual)
+			t.Errorf(`digest for example folder incorrect (%s): expected %s, got %s`, hash.Instance().Name(), digest, actual)
 		}
 	}
 }
@@ -175,7 +194,7 @@ func TestExampleEmptyModeFolderHashes(t *testing.T) {
 		// ./folder/a.txt
 		// ./folder/b.txt
 
-		f1 := hash.Algorithm()
+		f1 := hash.Instance()
 		err := f1.ReadBytes([]byte{
 			0x64, 0x75, 0x70, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x20, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74,
 			0x65, 0x73, 0x20, 0x72, 0xce, 0xb5, 0x70, 0x6f, 0x72, 0x74, 0x73, 0x0a, 0xf0, 0x9f, 0x98, 0x8a,
@@ -184,9 +203,9 @@ func TestExampleEmptyModeFolderHashes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		hashA := f1.Digest()
+		hashA := f1.Hash()
 
-		f2 := hash.Algorithm()
+		f2 := hash.Instance()
 		err = f2.ReadBytes([]byte{
 			0x64, 0x75, 0x70, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x20, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74,
 			0x65, 0x73, 0x20, 0x72, 0xce, 0xb5, 0x70, 0x6f, 0x72, 0x74, 0x73, 0x0a, 0xf0, 0x9f, 0x98, 0x8a,
@@ -195,13 +214,13 @@ func TestExampleEmptyModeFolderHashes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		hashB := f2.Digest()
+		hashB := f2.Hash()
 
 		XORByteSlices(hashA, hashB)
 
 		actual := hex.EncodeToString(hashA)
 		if actual != digest {
-			t.Errorf(`digest for example folder incorrect (%s): expected %s, got %s`, hash, digest, actual)
+			t.Errorf(`digest for example folder incorrect (%s): expected %s, got %s`, hash.Instance().Name(), digest, actual)
 		}
 	}
 }
