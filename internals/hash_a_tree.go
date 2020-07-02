@@ -64,18 +64,38 @@ type WalkParameters struct {
 }
 
 // HashNode generates the hash value of a given file (at join(basePath, data.Path)).
-// For directories, only the filename is hashed on three mode.
+// For directories, only the filename is hashed on three-mode.
 func HashNode(hashAlgorithm HashAlgo, threeMode bool, basePath string, data FileData) Hash {
 	hash := hashAlgorithm.Instance().NewCopy()
 	// TODO does it make sense that basePath and data.Path is provided. We mostly need their joined version, right?
 
+	addToHash := func(nodeType byte, path, content string) {
+		// nodeType
+		hash.ReadBytes([]byte{nodeType})
+
+		// path
+		basename := filepath.Base(path)
+		hash.ReadBytes([]byte(basename))
+
+		// content
+		if content != "" {
+			hash.ReadBytes([]byte(content))
+		}
+	}
+
 	switch {
 	case data.Type == 'D':
-		return hash.Hash()
+		if threeMode {
+			addToHash(data.Type, data.Path, "")
+			return hash.Hash()
+		}
+		zero := make([]byte, hash.OutputSize())
+		return zero
 	case data.Type == 'C':
-		hash.ReadBytes([]byte(`device file`))
+		addToHash(data.Type, data.Path, `device file`)
 		return hash.Hash()
 	case data.Type == 'F':
+		addToHash(data.Type, data.Path, "")
 		hash.ReadFile(filepath.Join(basePath, data.Path))
 		return hash.Hash()
 	case data.Type == 'L':
@@ -83,14 +103,14 @@ func HashNode(hashAlgorithm HashAlgo, threeMode bool, basePath string, data File
 		if err != nil {
 			return hash.Hash()
 		}
-		hash.ReadBytes([]byte(`link to `))
+		addToHash(data.Type, data.Path, `link to `)
 		hash.ReadBytes([]byte(target))
 		return hash.Hash()
 	case data.Type == 'P':
-		hash.ReadBytes([]byte(`FIFO pipe`))
+		addToHash(data.Type, data.Path, `FIFO pipe`)
 		return hash.Hash()
 	case data.Type == 'S':
-		hash.ReadBytes([]byte(`UNIX domain socket`))
+		addToHash(data.Type, data.Path, `UNIX domain socket`)
 		return hash.Hash()
 	default:
 		panic(fmt.Sprintf("internal error - unknown type %c", data.Type))
@@ -172,21 +192,25 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			}
 		}
 
-		// in three mode, initialize the hash value with
-		// the hash value of basename
-		// as hash values of children will be XORed later on
+		// in three-mode, initialize the hash value with
+		// the node type and the basename concatenated and hashed
+		// → hash values of children will be XORed later on
 		hashValue := make(Hash, params.hashValueSize)
 		if params.threeMode {
 			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
 				return false, err
 			}
-			hash := h.Instance()
-			err = hash.ReadBytes([]byte(filepath.Base(nodePath)))
+			hashValue := HashNode(h, params.threeMode, filepath.Base(nodePath), FileData{
+				Path:      fullPath,
+				Type:      'D',
+				Size:      0,
+				HashValue: []byte{},
+			})
 			if err != nil {
 				return false, err
 			}
-			hashValue.XOR(hash.Hash())
+			hashValue.XOR(hashValue)
 		}
 
 		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), HashValue: hashValue}
@@ -273,21 +297,25 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			}
 		}
 
-		// in three mode, initialize the hash value with
-		// the hash value of basename
-		// as hash values of children will be XORed later on
+		// in three-mode, initialize the hash value with
+		// the node type and the basename concatenated and hashed
+		// → hash values of children will be XORed later on
 		hashValue := make(Hash, params.hashValueSize)
 		if params.threeMode {
 			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
 				return false, err
 			}
-			hash := h.Instance()
-			err = hash.ReadBytes([]byte(filepath.Base(nodePath)))
+			hashValue := HashNode(h, params.threeMode, filepath.Base(nodePath), FileData{
+				Path:      fullPath,
+				Type:      'D',
+				Size:      0,
+				HashValue: []byte{},
+			})
 			if err != nil {
 				return false, err
 			}
-			hashValue.XOR(hash.Hash())
+			hashValue.XOR(hashValue)
 		}
 
 		params.dirOut <- DirData{Path: nodePath, EntriesMissing: numEntries, Size: uint16(node.Size()), HashValue: hashValue}
@@ -363,13 +391,6 @@ func UnitHashFile(hashAlgorithm HashAlgo, threeMode bool, basePath string,
 	// for every input, hash the file and emit it to both channels
 	for fileData := range inputFile {
 		fileData.HashValue = HashNode(hashAlgorithm, threeMode, basePath, fileData)
-
-		if threeMode {
-			algo := hashAlgorithm.Instance()
-			algo.ReadBytes([]byte(filepath.Base(fileData.Path)))
-			h := algo.Hash()
-			Hash(fileData.HashValue).XOR(h)
-		}
 
 		outputDir <- fileData
 		runtime.Gosched() // TODO review
