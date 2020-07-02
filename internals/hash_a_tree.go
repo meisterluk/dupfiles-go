@@ -56,7 +56,7 @@ type WalkParameters struct {
 	excludeBasename      []string
 	excludeBasenameRegex []*regexp.Regexp
 	excludeTree          []string
-	basenameMode         bool
+	threeMode            bool
 	fileOut              chan<- FileData
 	dirOut               chan<- DirData
 	hashValueSize        int
@@ -64,8 +64,8 @@ type WalkParameters struct {
 }
 
 // HashNode generates the hash value of a given file (at join(basePath, data.Path)).
-// For directories, only the filename is hashed on basename mode.
-func HashNode(hashAlgorithm HashAlgo, basenameMode bool, basePath string, data FileData) Hash {
+// For directories, only the filename is hashed on three mode.
+func HashNode(hashAlgorithm HashAlgo, threeMode bool, basePath string, data FileData) Hash {
 	hash := hashAlgorithm.Instance().NewCopy()
 	// TODO does it make sense that basePath and data.Path is provided. We mostly need their joined version, right?
 
@@ -172,11 +172,11 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			}
 		}
 
-		// in basename mode, initialize the hash value with
+		// in three mode, initialize the hash value with
 		// the hash value of basename
 		// as hash values of children will be XORed later on
 		hashValue := make(Hash, params.hashValueSize)
-		if params.basenameMode {
+		if params.threeMode {
 			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
 				return false, err
@@ -273,11 +273,11 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 			}
 		}
 
-		// in basename mode, initialize the hash value with
+		// in three mode, initialize the hash value with
 		// the hash value of basename
 		// as hash values of children will be XORed later on
 		hashValue := make(Hash, params.hashValueSize)
-		if params.basenameMode {
+		if params.threeMode {
 			h, err := HashAlgos{}.FromString(params.hashAlgorithm)
 			if err != nil {
 				return false, err
@@ -304,7 +304,7 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 // If any error occurs, [only] the first error will be written to errChan. Otherwise nil is written to the error channel.
 // Thus errChan also serves as signal to indicate when {fileOut, dirOut} channel won't receive any more data.
 // NOTE this function defers recover. Run it as goroutine.
-func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, basenameMode bool, hashValueSize int,
+func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, threeMode bool, hashValueSize int,
 	fileOut chan<- FileData, dirOut chan<- DirData,
 	errChan chan error, shallStop *bool, wg *sync.WaitGroup,
 ) {
@@ -327,7 +327,7 @@ func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string
 	walkParams := WalkParameters{
 		basePath: node, dfs: dfs, ignorePermErrors: ignorePermErrors, excludeBasename: excludeBasename,
 		hashAlgorithm: hashAlgorithm, excludeBasenameRegex: regexes, excludeTree: excludeTree,
-		basenameMode: basenameMode, fileOut: fileOut, dirOut: dirOut, hashValueSize: hashValueSize,
+		threeMode: threeMode, fileOut: fileOut, dirOut: dirOut, hashValueSize: hashValueSize,
 		shallStop: shallStop,
 	}
 
@@ -352,7 +352,7 @@ func UnitWalk(node string, dfs bool, ignorePermErrors bool, hashAlgorithm string
 // UnitHashFile computes the hash of the non-directory it receives over the inputFile channel
 // and sends the annotated hash value to both; UnitHashDir and UnitFinal.
 // NOTE this function defers recover. Run it as goroutine.
-func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
+func UnitHashFile(hashAlgorithm HashAlgo, threeMode bool, basePath string,
 	inputFile <-chan FileData, outputDir chan<- FileData, outputFinal chan<- FileData,
 	errChan chan<- error, done func(), wg *sync.WaitGroup,
 ) {
@@ -362,9 +362,9 @@ func UnitHashFile(hashAlgorithm HashAlgo, basenameMode bool, basePath string,
 
 	// for every input, hash the file and emit it to both channels
 	for fileData := range inputFile {
-		fileData.HashValue = HashNode(hashAlgorithm, basenameMode, basePath, fileData)
+		fileData.HashValue = HashNode(hashAlgorithm, threeMode, basePath, fileData)
 
-		if basenameMode {
+		if threeMode {
 			algo := hashAlgorithm.Instance()
 			algo.ReadBytes([]byte(filepath.Base(fileData.Path)))
 			h := algo.Hash()
@@ -625,7 +625,7 @@ LOOP:
 // In case of an error, one error will be written to errChan.
 // Channels err and out will always be closed.
 func HashATree(
-	baseNode string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, basenameMode bool, concurrentFSUnits int,
+	baseNode string, dfs bool, ignorePermErrors bool, hashAlgorithm string, excludeBasename, excludeBasenameRegex, excludeTree []string, threeMode bool, concurrentFSUnits int,
 	outChan chan<- ReportTailLine, errChan chan<- error,
 ) {
 	defer close(outChan)
@@ -666,9 +666,9 @@ func HashATree(
 
 	wg.Add(3 + 4)
 
-	go UnitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, basenameMode, h.Instance().OutputSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
+	go UnitWalk(baseNode, dfs, ignorePermErrors, hashAlgorithm, excludeBasename, excludeBasenameRegex, excludeTree, threeMode, h.Instance().OutputSize(), walkToFile, walkToDir, errorChan, &shallTerminate, &wg)
 	for i := 0; i < 4; i++ { // TODO static number 4 is wrong, right?
-		go UnitHashFile(h, basenameMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
+		go UnitHashFile(h, threeMode, baseNode, walkToFile, fileToDir, fileToFinal, errorChan, func() {
 			workerTerminated <- true
 		}, &wg)
 	}

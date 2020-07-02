@@ -111,7 +111,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	// Step 1: check that parameterization is consistent
 	var refVersion uint16
 	var refHashAlgorithm string
-	var refBasenameMode bool
+	var refThreeMode bool
 	separators := ""
 	for _, reportFile := range reportFiles {
 		stat, err := os.Stat(reportFile)
@@ -136,13 +136,13 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 		version := rep.Head.Version[0]
 		hashAlgorithm := rep.Head.HashAlgorithm
-		baseName := rep.Head.BasenameMode
+		threeMode := rep.Head.ThreeMode
 		rep.Close()
 
 		if refHashAlgorithm == "" {
 			refVersion = version
 			refHashAlgorithm = hashAlgorithm
-			refBasenameMode = baseName
+			refThreeMode = threeMode
 		} else {
 			if refVersion != version {
 				errChan <- fmt.Errorf(`Inconsistent configuration: %s uses version %d.x, but %s uses version %d.x`, reportFiles[0], refVersion, reportFile, rep.Head.Version[0])
@@ -152,8 +152,8 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 				errChan <- fmt.Errorf(`Inconsistent configuration: %s uses '%s', but %s uses '%s'`, reportFiles[0], refHashAlgorithm, reportFile, rep.Head.HashAlgorithm)
 				return
 			}
-			if refBasenameMode != baseName {
-				errChan <- fmt.Errorf(`Inconsistent configuration: %s uses basename-mode=%t, but %s uses basename-mode=%t`, reportFiles[0], refBasenameMode, reportFile, baseName)
+			if refThreeMode != threeMode {
+				errChan <- fmt.Errorf(`Inconsistent configuration: %s uses three-mode=%t, but %s uses three-mode=%t`, reportFiles[0], refThreeMode, reportFile, threeMode)
 				return
 			}
 		}
@@ -170,11 +170,11 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	}
 	hashValueSizeI := algo.Instance().OutputSize()
 	hashValueSize := uint64(hashValueSizeI)
-	basenameString := "basename"
-	if !refBasenameMode {
-		basenameString = "empty"
+	modeString := "three"
+	if !refThreeMode {
+		modeString = "content"
 	}
-	log.Printf("Step 1 of 4 finished: metadata is consistent: version %d, hash algo %s, and %s mode\n", refVersion, refHashAlgorithm, basenameString)
+	log.Printf("Step 1 of 4 finished: metadata is consistent: version %d, hash algo %s, and %s mode\n", refVersion, refHashAlgorithm, modeString)
 
 	// Substep: with --long, start a goroutine collecting hashValue:offset pairs
 	mapsHVO := GetMapsHashValueOffset(hashValueSizeI)
@@ -350,13 +350,13 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 
 	var dumpTree func(*HierarchyNode, *DigestData, int)
 	dumpTree = func(node *HierarchyNode, data *DigestData, indent int) {
-		identation := strings.Repeat("  ", indent)
+		indentation := strings.Repeat("  ", indent)
 		basename := node.basename
 		if node.basename == "" && indent == 0 {
 			basename = "."
 		}
 		log.Printf("%s%s (parent %p) %s and %d child(ren) and %d duplicates\n",
-			identation, basename, node.parent,
+			indentation, basename, node.parent,
 			data.Hash(node.hashValueFirstByte, int(node.hashValueIndex>>1)).Digest(),
 			len(node.children),
 			data.Duplicates(node.hashValueFirstByte, int(node.hashValueIndex>>1)),

@@ -10,7 +10,7 @@ type ReportHeadLine struct {
 	Version       [3]uint16
 	Timestamp     time.Time
 	HashAlgorithm string
-	BasenameMode  bool
+	ThreeMode     bool
 	Separator     byte
 	NodeName      string
 	BasePath      string

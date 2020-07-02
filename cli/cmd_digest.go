@@ -25,8 +25,8 @@ type DigestCommand struct {
 	ExcludeBasename      []string `json:"exclude-basename"`
 	ExcludeBasenameRegex []string `json:"exclude-basename-regex"`
 	ExcludeTree          []string `json:"exclude-tree"`
-	BasenameMode         bool     `json:"basename-mode"`
-	EmptyMode            bool     `json:"empty-mode"`
+	ThreeMode            bool     `json:"three-mode"`
+	ContentMode          bool     `json:"content-mode"`
 	Workers              int      `json:"workers"`
 	ConfigOutput         bool     `json:"config"`
 	JSONOutput           bool     `json:"json"`
@@ -44,8 +44,8 @@ type CLIDigestCommand struct {
 	ExcludeBasename      *[]string
 	ExcludeBasenameRegex *[]string
 	ExcludeTree          *[]string
-	BasenameMode         *bool
-	EmptyMode            *bool
+	ThreeMode            *bool
+	ContentMode          *bool
 	Workers              *int
 	ConfigOutput         *bool
 	JSONOutput           *bool
@@ -67,8 +67,8 @@ func NewCLIDigestCommand(app *kingpin.Application) *CLIDigestCommand {
 	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
 	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
 	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings() // TODO trim any trailing/leading separators
-	c.BasenameMode = c.cmd.Flag("basename-mode", "basename mode (thus hashes encode structure)").Bool()
-	c.EmptyMode = c.cmd.Flag("empty-mode", "empty mode (thus hashes match tools like md5sum)").Bool()
+	c.ThreeMode = c.cmd.Flag("three-mode", "three mode (thus hashes encode node type, basename, and content)").Bool()
+	c.ContentMode = c.cmd.Flag("content-mode", "content mode (thus hashes match tools like md5sum)").Bool()
 	c.Workers = c.cmd.Flag("workers", "number of concurrent traversal units").Int()
 	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
 	c.JSONOutput = c.cmd.Flag("json", "return output as JSON, not as plain text").Bool()
@@ -86,8 +86,8 @@ func (c *CLIDigestCommand) Validate() (*DigestCommand, error) {
 	if *c.DFS && *c.BFS {
 		return nil, fmt.Errorf("cannot accept --bfs and --dfs simultaneously")
 	}
-	if *c.BasenameMode && *c.EmptyMode {
-		return nil, fmt.Errorf("cannot accept --basename-mode and --empty-mode simultaneously")
+	if *c.ThreeMode && *c.ContentMode {
+		return nil, fmt.Errorf("cannot accept --three-mode and --content-mode simultaneously")
 	}
 
 	// migrate CLIDigestCommand to DigestCommand
@@ -105,8 +105,8 @@ func (c *CLIDigestCommand) Validate() (*DigestCommand, error) {
 	copy(cmd.ExcludeBasename, *c.ExcludeBasename)
 	copy(cmd.ExcludeBasenameRegex, *c.ExcludeBasenameRegex)
 	copy(cmd.ExcludeTree, *c.ExcludeTree)
-	cmd.BasenameMode = *c.BasenameMode
-	cmd.EmptyMode = *c.EmptyMode
+	cmd.ThreeMode = *c.ThreeMode
+	cmd.ContentMode = *c.ContentMode
 	cmd.ConfigOutput = *c.ConfigOutput
 	cmd.Workers = *c.Workers
 	cmd.JSONOutput = *c.JSONOutput
@@ -118,10 +118,10 @@ func (c *CLIDigestCommand) Validate() (*DigestCommand, error) {
 		cmd.DFS = envDFS
 		cmd.BFS = !envDFS
 	}
-	envEmpty, errEmpty := EnvToBool("DUPFILES_EMPTY_MODE")
-	if errEmpty == nil {
-		cmd.EmptyMode = envEmpty
-		cmd.BasenameMode = !envEmpty
+	envContent, errContent := EnvToBool("DUPFILES_CONTENT_MODE")
+	if errContent == nil {
+		cmd.ContentMode = envContent
+		cmd.ThreeMode = !envContent
 	}
 	/// DUPFILES_HASH_ALGORITHM was already handled
 	envIPE, errIPE := EnvToBool("DUPFILES_IGNORE_PERM_ERRORS")
@@ -145,8 +145,8 @@ func (c *CLIDigestCommand) Validate() (*DigestCommand, error) {
 	if !cmd.DFS && !cmd.BFS {
 		cmd.DFS = true
 	}
-	if !cmd.EmptyMode && !cmd.BasenameMode {
-		cmd.BasenameMode = true
+	if !cmd.ContentMode && !cmd.ThreeMode {
+		cmd.ThreeMode = true
 	}
 
 	// validity check 2
@@ -186,7 +186,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 		errChan := make(chan error)
 		go internals.HashATree(c.BaseNode, c.DFS, c.IgnorePermErrors,
 			c.HashAlgorithm, c.ExcludeBasename, c.ExcludeBasenameRegex,
-			c.ExcludeTree, c.BasenameMode, c.Workers, output, errChan,
+			c.ExcludeTree, c.ThreeMode, c.Workers, output, errChan,
 		)
 
 		// read value from evaluation
@@ -231,7 +231,7 @@ func (c *DigestCommand) Run(w Output, log Output) (int, error) {
 	if err != nil {
 		return 8, err
 	}
-	hashValue := internals.HashNode(algo, c.BasenameMode, filepath.Dir(c.BaseNode), internals.FileData{
+	hashValue := internals.HashNode(algo, c.ThreeMode, filepath.Dir(c.BaseNode), internals.FileData{
 		Path:      filepath.Base(c.BaseNode),
 		Type:      internals.DetermineNodeType(fileinfo),
 		Size:      uint64(fileinfo.Size()),

@@ -26,10 +26,10 @@ func NewReportWriter(filepath string) (*Report, error) {
 }
 
 // HeadLine writes a headline to the report given the parameters provided
-func (r *Report) HeadLine(hashAlgorithm string, basenameMode bool, separator byte, nodeName, basePath string) error {
-	mode := "E"
-	if basenameMode {
-		mode = "B"
+func (r *Report) HeadLine(hashAlgorithm string, threeMode bool, separator byte, nodeName, basePath string) error {
+	mode := "C"
+	if threeMode {
+		mode = "T"
 	}
 
 	_, err := fmt.Fprintf(r.File, "# 1.0.0 %s %s %s %s %s %s\n",

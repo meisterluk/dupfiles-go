@@ -66,7 +66,7 @@ func TestExampleBasenameModeFileHashes(t *testing.T) {
 
 		actual := h.Hash().Digest()
 		if digest != actual {
-			t.Errorf(`digest for example.txt in basename mode incorrect (%s): expected %s, got %s`, hash.Instance().Name(), digest, actual)
+			t.Errorf(`digest for example.txt in three mode incorrect (%s): expected %s, got %s`, hash.Instance().Name(), digest, actual)
 		}
 	}
 }
@@ -102,7 +102,7 @@ func TestExampleEmptyModeFileHashes(t *testing.T) {
 
 		actual := h.Hash().Digest()
 		if digest != actual {
-			t.Errorf(`digest for example.txt in empty mode incorrect (%s): expected %s, got %s`, hash.Instance().Name(), digest, actual)
+			t.Errorf(`digest for example.txt in content mode incorrect (%s): expected %s, got %s`, hash.Instance().Name(), digest, actual)
 		}
 	}
 }

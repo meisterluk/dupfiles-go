@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-func writeEmptyMode(w io.Writer) {
+func writeContentMode(w io.Writer) {
 	w.Write([]byte(`dupfiles generates rεports
 😊
 `))
@@ -38,7 +38,7 @@ func writeEmptyMode(w io.Writer) {
 		fmt.Println("")*/
 }
 
-func writeBasenameMode(w io.Writer) {
+func writeThreeMode(w io.Writer) {
 	w.Write([]byte("example.txt"))
 	w.Write([]byte{0x1F})
 	w.Write([]byte(`dupfiles generates rεports
@@ -46,12 +46,12 @@ func writeBasenameMode(w io.Writer) {
 `))
 }
 
-func adler_32(emptyMode bool) {
+func adler_32(contentMode bool) {
 	h := adler32.New()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	s := h.Sum32()
 	dig := []byte{
@@ -64,13 +64,13 @@ func adler_32(emptyMode bool) {
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func crc_32(emptyMode bool) {
+func crc_32(contentMode bool) {
 	crc32Table := crc32.MakeTable(crc32.IEEE)
 	h := crc32.New(crc32Table)
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	s := h.Sum32()
 	dig := []byte{
@@ -83,13 +83,13 @@ func crc_32(emptyMode bool) {
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func crc_64(emptyMode bool) {
+func crc_64(contentMode bool) {
 	crc64Table := crc64.MakeTable(crc64.ISO)
 	h := crc64.New(crc64Table)
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	s := h.Sum64()
 	dig := []byte{
@@ -106,132 +106,132 @@ func crc_64(emptyMode bool) {
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func fnv1_32(emptyMode bool) {
+func fnv1_32(contentMode bool) {
 	h := fnv.New32()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("FNV1-32: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func fnv1_64(emptyMode bool) {
+func fnv1_64(contentMode bool) {
 	h := fnv.New64()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("FNV1-64: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func fnv1_128(emptyMode bool) {
+func fnv1_128(contentMode bool) {
 	h := fnv.New128()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("FNV1-128: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func fnv1a_32(emptyMode bool) {
+func fnv1a_32(contentMode bool) {
 	h := fnv.New32a()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("FNV1a-32: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func fnv1a_64(emptyMode bool) {
+func fnv1a_64(contentMode bool) {
 	h := fnv.New64a()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("FNV1a-64: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func fnv1a_128(emptyMode bool) {
+func fnv1a_128(contentMode bool) {
 	h := fnv.New128a()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("FNV1a-128: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func md_5(emptyMode bool) {
+func md_5(contentMode bool) {
 	h := md5.New()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("MD5: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func sha_1(emptyMode bool) {
+func sha_1(contentMode bool) {
 	h := sha1.New()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("sha1: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func sha_256(emptyMode bool) {
+func sha_256(contentMode bool) {
 	h := sha256.New()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("sha256: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func sha_512(emptyMode bool) {
+func sha_512(contentMode bool) {
 	h := sha512.New()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("sha512: ")
 	fmt.Println(hex.EncodeToString(dig))
 }
 
-func sha_3(emptyMode bool) {
+func sha_3(contentMode bool) {
 	h := sha3.New512()
-	if emptyMode {
-		writeEmptyMode(h)
+	if contentMode {
+		writeContentMode(h)
 	} else {
-		writeBasenameMode(h)
+		writeThreeMode(h)
 	}
 	dig := h.Sum([]byte{})
 	fmt.Print("sha3-512: ")

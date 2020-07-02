@@ -24,7 +24,7 @@ type BriefReportStatistics struct {
 		Version       [3]uint16 `json:"version"`
 		Timestamp     time.Time `json:"timestamp"`
 		HashAlgorithm string    `json:"hash-algorithm"`
-		BasenameMode  bool      `json:"basename-mode"`
+		ThreeMode     bool      `json:"three-mode"`
 		Separator     string    `json:"separator"`
 		NodeName      string    `json:"node-name"`
 		BasePath      string    `json:"base-path"`
@@ -197,7 +197,7 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 	briefStats.Head.Version = rep.Head.Version
 	briefStats.Head.Timestamp = rep.Head.Timestamp
 	briefStats.Head.HashAlgorithm = rep.Head.HashAlgorithm
-	briefStats.Head.BasenameMode = rep.Head.BasenameMode
+	briefStats.Head.ThreeMode = rep.Head.ThreeMode
 	briefStats.Head.Separator = string(rep.Head.Separator)
 	briefStats.Head.NodeName = rep.Head.NodeName
 	briefStats.Head.BasePath = rep.Head.BasePath

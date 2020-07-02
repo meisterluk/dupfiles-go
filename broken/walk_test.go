@@ -177,7 +177,7 @@ func (s shakeHash) Write(p []byte) (int, error) {
 // of data, but it may operate more efficiently if all writes
 // are a multiple of the block size.
 
-func refHash(t *testing.T, basenameMode bool, hashAlgorithm string, mode int) string {
+func refHash(t *testing.T, threeMode bool, hashAlgorithm string, mode int) string {
 	var h hash.Hash
 	switch hashAlgorithm {
 	case "crc64":
@@ -223,14 +223,14 @@ func refHash(t *testing.T, basenameMode bool, hashAlgorithm string, mode int) st
 
 	switch mode {
 	case 0:
-		if basenameMode {
+		if threeMode {
 			update(append([]byte("2"), '\x1F'))
 		}
 
 		update([]byte(FILECONTENT))
 		return hex.EncodeToString(h.Sum(nil))
 	case 1:
-		if basenameMode {
+		if threeMode {
 			update(append([]byte("8"), '\x1F'))
 		}
 
@@ -238,7 +238,7 @@ func refHash(t *testing.T, basenameMode bool, hashAlgorithm string, mode int) st
 		fileHashValue := h.Sum(nil)
 
 		h.Reset()
-		if basenameMode {
+		if threeMode {
 			update(append([]byte("7"), '\x1F'))
 		}
 		dirHashValue := h.Sum(nil)
@@ -246,7 +246,7 @@ func refHash(t *testing.T, basenameMode bool, hashAlgorithm string, mode int) st
 		xorByteSlices(dirHashValue, fileHashValue)
 		return hex.EncodeToString(dirHashValue)
 	case 2:
-		if basenameMode {
+		if threeMode {
 			update(append([]byte("5"), '\x1F'))
 		}
 
@@ -254,7 +254,7 @@ func refHash(t *testing.T, basenameMode bool, hashAlgorithm string, mode int) st
 		fileHashValue1 := h.Sum(nil)
 		h.Reset()
 
-		if basenameMode {
+		if threeMode {
 			update(append([]byte("6"), '\x1F'))
 		}
 
@@ -262,7 +262,7 @@ func refHash(t *testing.T, basenameMode bool, hashAlgorithm string, mode int) st
 		fileHashValue2 := h.Sum(nil)
 		h.Reset()
 
-		if basenameMode {
+		if threeMode {
 			update(append([]byte("3"), '\x1F'))
 		}
 		dirHashValue := h.Sum(nil)
@@ -281,7 +281,7 @@ func TestEvaluate(t *testing.T) {
 	defer os.RemoveAll(base)
 
 	// define structure for reference hashes. The key structure is
-	// [basenameMode][hashAlgorithm]{hash of file, hash of directory with file, hash of directory with two file, hash of .}
+	// [threeMode][hashAlgorithm]{hash of file, hash of directory with file, hash of directory with two file, hash of .}
 	refHashes := map[bool]map[string][3]string{
 		true: {
 			"crc64":        [3]string{"", "", ""},
@@ -321,18 +321,18 @@ func TestEvaluate(t *testing.T) {
 
 	// fill with reference hashes. Storing them in source code would be okay,
 	// but I have concidence that the helper function compute them accurately.
-	for basenameMode, assignment := range refHashes {
+	for threeMode, assignment := range refHashes {
 		for hashAlgorithm := range assignment {
-			refHashes[basenameMode][hashAlgorithm] = [3]string{
-				refHash(t, basenameMode, hashAlgorithm, 0),
-				refHash(t, basenameMode, hashAlgorithm, 1),
-				refHash(t, basenameMode, hashAlgorithm, 2),
+			refHashes[threeMode][hashAlgorithm] = [3]string{
+				refHash(t, threeMode, hashAlgorithm, 0),
+				refHash(t, threeMode, hashAlgorithm, 1),
+				refHash(t, threeMode, hashAlgorithm, 2),
 			}
 		}
 	}
 
 	// correctness tests
-	for basenameMode, assignment := range refHashes {
+	for threeMode, assignment := range refHashes {
 		for hashAlgorithm, hashes := range assignment {
 			outputChan := make(chan ReportTailLine)
 			errChan := make(chan error)
@@ -340,7 +340,7 @@ func TestEvaluate(t *testing.T) {
 			go HashATree(
 				base, false, false, hashAlgorithm,
 				[]string{}, []string{}, []string{},
-				basenameMode, 4, outputChan, errChan,
+				threeMode, 4, outputChan, errChan,
 			)
 
 			testsFinished := 0
@@ -348,21 +348,21 @@ func TestEvaluate(t *testing.T) {
 				if entry.Path == `1/2` && entry.FileSize == 33 {
 					actual := hex.EncodeToString(entry.HashValue)
 					if actual != hashes[0] {
-						t.Fatalf("basenameMode=%t hashAlgorithm=%s filehash is %s, expected %s", basenameMode, hashAlgorithm, actual, hashes[0])
+						t.Fatalf("threeMode=%t hashAlgorithm=%s filehash is %s, expected %s", threeMode, hashAlgorithm, actual, hashes[0])
 					} else {
 						testsFinished++
 					}
 				} else if entry.Path == `1/4/7` {
 					actual := hex.EncodeToString(entry.HashValue)
 					if actual != hashes[1] {
-						t.Fatalf("basenameMode=%t hashAlgorithm=%s dir-with-file-hash is %s, expected %s", basenameMode, hashAlgorithm, actual, hashes[1])
+						t.Fatalf("threeMode=%t hashAlgorithm=%s dir-with-file-hash is %s, expected %s", threeMode, hashAlgorithm, actual, hashes[1])
 					} else {
 						testsFinished++
 					}
 				} else if entry.Path == `1/3` {
 					actual := hex.EncodeToString(entry.HashValue)
 					if actual != hashes[2] {
-						t.Fatalf("basenameMode=%t hashAlgorithm=%s dir-with-2-files-hash is %s, expected %s", basenameMode, hashAlgorithm, actual, hashes[2])
+						t.Fatalf("threeMode=%t hashAlgorithm=%s dir-with-2-files-hash is %s, expected %s", threeMode, hashAlgorithm, actual, hashes[2])
 					} else {
 						testsFinished++
 					}
