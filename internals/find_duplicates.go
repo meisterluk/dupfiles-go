@@ -30,6 +30,7 @@ const MaxCountInDataStructure = 127
 // HierarchyNode is a data structure to represent a node
 // within the filesystem tree represented in a report file
 type HierarchyNode struct {
+	// TODO public members
 	basename           string
 	hashValueFirstByte byte
 	hashValueIndex     uint // NOTE first bit is used to store whether "hashValueIndex" and "hashValueFirstByte" have been initialized
@@ -55,7 +56,7 @@ type PublishedSet struct {
 
 // FindDuplicates finds duplicate nodes in report files. The results are sent to outChan.
 // Any errors are sent to errChan. At termination outChan and errChan are closed.
-func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan chan<- error) {
+func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan chan<- error, long bool) {
 	// TODO add Output as input argument here?
 
 	defer close(outChan)
@@ -125,7 +126,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			errChan <- err
 			return
 		}
-		_, err = rep.Iterate()
+		_, _, err = rep.Iterate()
 		if err != nil {
 			errChan <- err
 			return
@@ -175,6 +176,38 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 	}
 	log.Printf("Step 1 of 4 finished: metadata is consistent: version %d, hash algo %s, and %s mode\n", refVersion, refHashAlgorithm, basenameString)
 
+	// Substep: with --long, start a goroutine collecting hashValue:offset pairs
+	mapsHVO := GetMapsHashValueOffset(hashValueSizeI)
+	var wgLong sync.WaitGroup
+	if long {
+		wgLong.Add(len(reportFiles))
+
+		go func(mapsHVO MapsHashValueOffset, wg *sync.WaitGroup) {
+			defer wgLong.Done()
+			for _, reportFile := range reportFiles {
+				rep, err := NewReportReader(reportFile)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				for {
+					tail, info, err := rep.Iterate()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						rep.Close()
+						errChan <- err
+						return
+					}
+
+					mapsHVO.Add(reportFile, tail.HashValue, info.LineByteOffset)
+				}
+				rep.Close()
+			}
+		}(mapsHVO, &wgLong)
+	}
+
 	// Step 2: read all hash values into a byte array called data.
 	//   The byte array is a sequence of items with values (hash value suffix ‖ disabled bit ‖ dups count).
 	//   hash value suffix: hash value byte array without the first byte (we already dispatched with it, right?)
@@ -214,7 +247,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			return
 		}
 		for {
-			tail, err := rep.Iterate()
+			tail, _, err := rep.Iterate()
 			if err == io.EOF {
 				break
 			}
@@ -266,7 +299,7 @@ func FindDuplicates(reportFiles []string, outChan chan<- DuplicateSet, errChan c
 			return
 		}
 		for {
-			tail, err := rep.Iterate()
+			tail, _, err := rep.Iterate()
 			if err == io.EOF {
 				break
 			}

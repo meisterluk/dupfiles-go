@@ -163,7 +163,7 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 		}
 		log.Printfln("# %s ⇒ %s", match.Report, match.BaseNode)
 		for {
-			tail, err := rep.Iterate()
+			tail, _, err := rep.Iterate()
 			if err == io.EOF {
 				break
 			}
@@ -173,6 +173,7 @@ func (c *DiffCommand) Run(w Output, log Output) (int, error) {
 			}
 
 			// TODO this assumes that paths are canonical and do not end with a folder separator
+			//   → since filepath information is now ignored, this should be fine again, right?
 			if tail.Path == match.BaseNode && (tail.NodeType == 'D' || tail.NodeType == 'L') {
 				anyFound[t] = true
 			}

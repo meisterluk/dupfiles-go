@@ -134,7 +134,7 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 	}
 	var briefStats BriefReportStatistics
 	for {
-		tail, err := rep.Iterate()
+		tail, _, err := rep.Iterate()
 		if err == io.EOF {
 			break
 		}
@@ -212,13 +212,13 @@ func (c *StatsCommand) Run(w Output, log Output) (int, error) {
 	out.Long = longStats
 
 	if c.JSONOutput {
-		// TODO plain text output
 		jsonRepr, err := json.Marshal(&out)
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)
 		}
 		w.Println(string(jsonRepr))
 	} else {
+		// TODO plain text output
 		jsonRepr, err := json.MarshalIndent(&out, "", "  ")
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)

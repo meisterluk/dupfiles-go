@@ -189,7 +189,7 @@ func (c *FindCommand) Run(w Output, log Output) (int, error) {
 		}
 	}()
 
-	internals.FindDuplicates(c.Reports, dupEntries, errChan)
+	internals.FindDuplicates(c.Reports, dupEntries, errChan, c.Long)
 	wg.Wait()
 
 	// TODO: print debug.GCStats ?
