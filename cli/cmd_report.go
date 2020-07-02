@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/meisterluk/dupfiles-go/internals"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -64,7 +65,7 @@ func NewCLIReportCommand(app *kingpin.Application) *CLIReportCommand {
 	c.HashAlgorithm = c.cmd.Flag("hash-algorithm", "hash algorithm to use").Default(EnvOr("DUPFILES_HASH_ALGORITHM", defaultHashAlgo)).Short('a').String()
 	c.ExcludeBasename = c.cmd.Flag("exclude-basename", "any file with this particular filename is ignored").Strings()
 	c.ExcludeBasenameRegex = c.cmd.Flag("exclude-basename-regex", "exclude files with name matching given POSIX regex").Strings()
-	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings() // TODO trim any trailing/leading separators
+	c.ExcludeTree = c.cmd.Flag("exclude-tree", "exclude folder and subfolders of given filepath").Strings()
 	c.BasenameMode = c.cmd.Flag("basename-mode", "basename mode (thus hashes encode structure)").Bool()
 	c.EmptyMode = c.cmd.Flag("empty-mode", "empty mode (thus hashes match tools like md5sum)").Bool()
 	c.Workers = c.cmd.Flag("workers", "number of concurrent traversal units").Int()
@@ -172,6 +173,11 @@ func (c *CLIReportCommand) Validate() (*ReportCommand, error) {
 	// validity check 2
 	if cmd.Workers <= 0 {
 		return nil, fmt.Errorf("expected --workers to be positive integer, is %d", cmd.Workers)
+	}
+
+	// sanitize tree paths
+	for i := range cmd.ExcludeTree {
+		cmd.ExcludeTree[i] = strings.Trim(cmd.ExcludeTree[i], `/\`)
 	}
 
 	return cmd, nil
