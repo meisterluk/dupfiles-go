@@ -39,7 +39,8 @@ func NewReportReader(filepath string) (*Report, error) {
 }
 
 // Iterate reads and parses the next tail line in the file
-func (r *Report) Iterate() (ReportTailLine, error) {
+func (r *Report) Iterate() (ReportTailLine, ReportTailExtraInfo, error) {
+	rtei := ReportTailExtraInfo{0}
 	tail := ReportTailLine{}
 	tailLineRead := false
 
@@ -49,17 +50,22 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 		var cache [1]byte
 		var buffer [512]byte
 		bufferIndex := 0
+		byteOffset, err := r.File.Seek(0, 1)
+		if err != nil {
+			return tail, rtei, err
+		}
+		rtei = ReportTailExtraInfo{LineByteOffset: uint64(byteOffset)}
 		for {
 			_, err := r.File.Read(cache[:])
 			if err != io.EOF {
 				if err != nil {
-					return tail, err
+					return tail, rtei, err
 				}
 				if bufferIndex > 0 || (cache[0] != '\n' && cache[0] != '\r') {
 					buffer[bufferIndex] = cache[0]
 					bufferIndex++
 					if bufferIndex == 512 {
-						return tail, fmt.Errorf(`line too long, please report this issue to the developers`)
+						return tail, rtei, fmt.Errorf(`line too long, please report this issue to the developers`)
 					}
 				}
 			} else {
@@ -72,11 +78,11 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 		}
 
 		if bufferIndex == 0 && eofMet {
-			return tail, io.EOF
+			return tail, rtei, io.EOF
 		}
 
 		if !utf8.Valid(buffer[0:bufferIndex]) {
-			return tail, fmt.Errorf(`non-UTF-8 data found in report file, but report files must be UTF-8 encoded`)
+			return tail, rtei, fmt.Errorf(`non-UTF-8 data found in report file, but report files must be UTF-8 encoded`)
 		}
 
 		if buffer[0] == '#' && r.Head.HashAlgorithm == "" {
@@ -87,28 +93,28 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 
 			groups := headLineRegex.FindSubmatch(buffer[0:bufferIndex])
 			if len(groups) == 0 {
-				return tail, fmt.Errorf(`Could not parse head line`)
+				return tail, rtei, fmt.Errorf(`Could not parse head line`)
 			}
 
 			versionNumber, err := ParseVersionNumber(string(groups[1]))
 			if err != nil {
-				return tail, err
+				return tail, rtei, err
 			}
 
 			timestamp, err := ParseTimestamp(string(groups[3]))
 			if err != nil {
-				return tail, err
+				return tail, rtei, err
 			}
 
 			hashAlgorithm := strings.ToLower(string(groups[4]))
 			_, err = HashAlgos{}.FromString(hashAlgorithm)
 			if err != nil {
-				return tail, fmt.Errorf(`Unsupported hash algorithm '%s' specified`, hashAlgorithm)
+				return tail, rtei, fmt.Errorf(`Unsupported hash algorithm '%s' specified`, hashAlgorithm)
 			}
 
 			mode := groups[5][0]
 			if mode != 'E' && mode != 'B' {
-				return tail, fmt.Errorf(`Expected 'E' or 'B' as mode specifier, got '%c'`, mode)
+				return tail, rtei, fmt.Errorf(`Expected 'E' or 'B' as mode specifier, got '%c'`, mode)
 			}
 
 			r.Head.Version = versionNumber
@@ -129,7 +135,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 			groups := tailLineRegex.FindSubmatch(buffer[0:bufferIndex])
 			bytes, err := hex.DecodeString(string(groups[1]))
 			if err != nil {
-				return tail, fmt.Errorf(`could not decode hexadecimal digest '%s'`, groups[1])
+				return tail, rtei, fmt.Errorf(`could not decode hexadecimal digest '%s'`, groups[1])
 			}
 
 			tail.HashValue = bytes
@@ -137,7 +143,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 
 			fileSize, err := strconv.Atoi(string(groups[3]))
 			if err != nil {
-				return tail, fmt.Errorf(`filesize is invalid: '%s'`, err)
+				return tail, rtei, fmt.Errorf(`filesize is invalid: '%s'`, err)
 			}
 			tail.FileSize = uint64(fileSize)
 
@@ -150,7 +156,7 @@ func (r *Report) Iterate() (ReportTailLine, error) {
 		}
 	}
 
-	return tail, nil
+	return tail, rtei, nil
 }
 
 // Close closes the report
