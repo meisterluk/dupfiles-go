@@ -7,8 +7,20 @@ import (
 	"sync"
 
 	"github.com/meisterluk/dupfiles-go/internals"
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/spf13/cobra"
 )
+
+// FindCommand defines the CLI command parameters
+type FindCommand struct {
+	Reports          []string `json:"reports"`
+	Overwrite        bool     `json:"overwrite"`
+	Output           string   `json:"output"`
+	ResultByExitcode bool     `json:"result-by-exitcode"`
+	Long             bool     `json:"long"`
+	ConfigOutput     bool     `json:"config"`
+	JSONOutput       bool     `json:"json"`
+	Help             bool     `json:"help"`
+}
 
 // FindJSONResult is a struct used to serialize JSON output
 type FindJSONResult struct {
@@ -21,81 +33,80 @@ type FindJSONResult struct {
 	ByteNo     uint64 `json:"byte-offset,omitempty"`
 }
 
-// CLIFindCommand defined the CLI arguments as kingpin requires them
-type CLIFindCommand struct {
-	cmd              *kingpin.CmdClause
-	Reports          *[]string
-	Overwrite        *bool
-	Output           *string
-	ResultByExitcode *bool
-	Long             *bool
-	ConfigOutput     *bool
-	JSONOutput       *bool
+var findCommand *FindCommand
+
+var argReports []string
+var argResultByExitcode bool
+
+// findCmd represents the find command
+var findCmd = &cobra.Command{
+	Use:   "find",
+	Short: "Finds duplicates in report files",
+	Long: `This subcommand takes any number of report files and finds equivalent filesystem nodes. Equivalent filesystem nodes will only be returned, if all their respective parents are not equivalent. Hence, only the equivalent nodes closest to root will be reported.
+For example:
+
+    dupfiles find example.fsr
+
+Will return the set of equivalent nodes in example.fsr closest to root.
+TODO list equivalent nodes for the actual test/example tree
+`,
+	// Args considers all arguments (in the function arguments and global variables
+	// of the command line parser) with the goal to define the global FindCommand instance
+	// called findCommand and fill it with admissible parameters to run the find command.
+	// It EITHER succeeds, fill findCommand appropriately and returns nil.
+	// OR returns an error instance and findCommand is incomplete.
+	Args: func(cmd *cobra.Command, args []string) error {
+		// validity checks
+		if len(argReports) == 0 {
+			return fmt.Errorf("Expected at least 1 report; 0 are given")
+		}
+
+		// create global FindCommand instance
+		findCommand = new(FindCommand)
+		findCommand.Reports = argReports
+		findCommand.Overwrite = argOverwrite
+		findCommand.Output = argOutput
+		findCommand.ResultByExitcode = argResultByExitcode
+		findCommand.Long = argLong
+		findCommand.ConfigOutput = argConfigOutput
+		findCommand.JSONOutput = argJSONOutput
+		findCommand.Help = false
+
+		// handle environment variables
+		envJSON, errJSON := EnvToBool("DUPFILES_JSON")
+		if errJSON == nil {
+			findCommand.JSONOutput = envJSON
+		}
+		/// DUPFILES_OUTPUT was already handled
+		envOverwrite, errOverwrite := EnvToBool("DUPFILES_OVERWRITE")
+		if errOverwrite == nil {
+			findCommand.Overwrite = envOverwrite
+		}
+		envLong, errLong := EnvToBool("DUPFILES_LONG")
+		if errLong == nil {
+			findCommand.Long = envLong
+		}
+
+		return nil
+	},
+	// Run the find subcommand with findCommand.
+	Run: func(cmd *cobra.Command, args []string) {
+		// NOTE global input variables: {w, log, versionCommand}
+		exitCode, cmdError = findCommand.Run(w, log)
+		// NOTE global output variables: {exitCode, cmdError}
+	},
 }
 
-// NewCLIFindCommand defines the flags/arguments the CLI parser is supposed to understand
-func NewCLIFindCommand(app *kingpin.Application) *CLIFindCommand {
-	c := new(CLIFindCommand)
-	c.cmd = app.Command("find", "Finds differences in report files.")
+func init() {
+	rootCmd.AddCommand(findCmd)
+	argReports = make([]string, 0, 8)
 
-	c.Reports = c.cmd.Arg("reports", "reports to consider").Required().Strings()
-	c.Overwrite = c.cmd.Flag("overwrite", "if filepath already exists, overwrite it without asking").Bool()
-	c.Output = c.cmd.Flag("output", "write duplication results to file, not to stdout").Short('o').Default(EnvOr("DUPFILES_OUTPUT", "report.dup")).String()
-	c.ResultByExitcode = c.cmd.Flag("result-by-exitcode", "use exit code 42 on success and if at least one duplicate was found").Bool()
-	c.Long = c.cmd.Flag("long", "reread report file to provide more data for each duplicate found").Short('l').Bool()
-	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
-	c.JSONOutput = c.cmd.Flag("json", "return output as JSON, not as plain text").Bool()
-
-	return c
-}
-
-// Validate renders all arguments into a FindCommand or throws an error.
-// FindCommand provides *all* arguments to run a 'find' command.
-func (c *CLIFindCommand) Validate() (*FindCommand, error) {
-	// validity checks (check conditions which are not covered by kingpin)
-	if len(*c.Reports) == 0 {
-		return nil, fmt.Errorf("At least one report is required")
-	}
-
-	// migrate CLIFindCommand to FindCommand
-	cmd := new(FindCommand)
-	cmd.Reports = make([]string, len(*c.Reports))
-	copy(cmd.Reports, *c.Reports)
-	cmd.Overwrite = *c.Overwrite
-	cmd.Output = *c.Output
-	cmd.ResultByExitcode = *c.ResultByExitcode
-	cmd.Long = *c.Long
-	cmd.ConfigOutput = *c.ConfigOutput
-	cmd.JSONOutput = *c.JSONOutput
-
-	// handle environment variables
-	envJSON, errJSON := EnvToBool("DUPFILES_JSON")
-	if errJSON == nil {
-		cmd.JSONOutput = envJSON
-	}
-	/// DUPFILES_OUTPUT was already handled
-	envOverwrite, errOverwrite := EnvToBool("DUPFILES_OVERWRITE")
-	if errOverwrite == nil {
-		cmd.Overwrite = envOverwrite
-	}
-	envLong, errLong := EnvToBool("DUPFILES_LONG")
-	if errLong == nil {
-		cmd.Long = envLong
-	}
-
-	return cmd, nil
-}
-
-// FindCommand defines the CLI command parameters
-type FindCommand struct {
-	Reports          []string `json:"reports"`
-	Overwrite        bool     `json:"overwrite"`
-	Output           string   `json:"output"`
-	ResultByExitcode bool     `json:"result-by-exitcode"`
-	Long             bool     `json:"long"`
-	ConfigOutput     bool     `json:"config"`
-	JSONOutput       bool     `json:"json"`
-	Help             bool     `json:"help"`
+	findCmd.PersistentFlags().StringSliceVar(&argReports, `reports`, []string{}, `reports to consider`)
+	findCmd.MarkFlagRequired("reports")
+	findCmd.PersistentFlags().BoolVar(&argOverwrite, `overwrite`, false, `if filepath already exists, overwrite it without asking`)
+	findCmd.PersistentFlags().StringVarP(&argOutput, `output`, `o`, EnvOr("DUPFILES_OUTPUT", "report.dup"), `write duplication results to file, not to stdout`)
+	findCmd.PersistentFlags().BoolVar(&argResultByExitcode, `result-by-exitcode`, false, `use exit code 42 on success and if at least one duplicate was found`)
+	findCmd.PersistentFlags().BoolVarP(&argLong, `long`, `l`, false, `reread report file to provide more data for each duplicate found`)
 }
 
 // Run executes the CLI command find on the given parameter set,

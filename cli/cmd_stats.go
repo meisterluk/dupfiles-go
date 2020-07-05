@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"github.com/meisterluk/dupfiles-go/internals"
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/spf13/cobra"
 )
 
-// SizeEntry represents a FilesOfMaxSize entry
-type SizeEntry struct {
-	Path string `json:"path"`
-	Size uint64 `json:"size"`
+// StatsCommand defines the CLI command parameters
+type StatsCommand struct {
+	Report       string `json:"report"`
+	Long         bool   `json:"long"`
+	ConfigOutput bool   `json:"config"`
+	JSONOutput   bool   `json:"json"`
+	Help         bool   `json:"help"`
 }
 
 // BriefReportStatistics contains statistics collected from
@@ -49,75 +52,83 @@ type LongReportStatistics struct {
 	// {average, median, min, max} number of children in a folder?
 }
 
+// SizeEntry represents a FilesOfMaxSize entry
+type SizeEntry struct {
+	Path string `json:"path"`
+	Size uint64 `json:"size"`
+}
+
 // StatsJSONResult is a struct used to serialize JSON output
 type StatsJSONResult struct {
 	Brief BriefReportStatistics `json:"brief"`
 	Long  LongReportStatistics  `json:"long"`
 }
 
-// CLIStatsCommand defines the CLI arguments as kingpin requires them
-type CLIStatsCommand struct {
-	cmd          *kingpin.CmdClause
-	Report       *string
-	Long         *bool
-	ConfigOutput *bool
-	JSONOutput   *bool
-	Help         *bool
+var statsCommand *StatsCommand
+var argReport string
+var argLong bool
+
+// statsCmd represents the stats command
+var statsCmd = &cobra.Command{
+	Use:   "stats",
+	Short: "Get statistics about a filesystem tree based on a report file",
+	Long: `A report file encodes a filesystem state. This subcommand determines some statistics about the given filesystem.
+For example: 
+
+	dupfiles stats example_report.fsr
+`,
+	// Args considers all arguments (in the function arguments and global variables
+	// of the command line parser) with the goal to define the global StatsCommand instance
+	// called statsCommand and fill it with admissible parameters to run the stats command.
+	// It EITHER succeeds, fill statsCommand appropriately and returns nil.
+	// OR returns an error instance and statsCommand is incomplete.
+	Args: func(cmd *cobra.Command, args []string) error {
+		// create global StatsCommand instance
+		statsCommand = new(StatsCommand)
+		statsCommand.Report = argReport
+		statsCommand.ConfigOutput = argConfigOutput
+		statsCommand.JSONOutput = argJSONOutput
+		statsCommand.Help = false
+
+		// validity checks
+		if statsCommand.Report == "" {
+			return fmt.Errorf("One report must be specified")
+		}
+
+		// handle environment variables
+		envJSON, errJSON := EnvToBool("DUPFILES_JSON")
+		if errJSON == nil {
+			statsCommand.JSONOutput = envJSON
+			// NOTE ↓ ugly hack, to make Execute() return the appropriate value
+			argJSONOutput = envJSON
+		}
+		envLong, errLong := EnvToBool("DUPFILES_LONG")
+		if errLong == nil {
+			statsCommand.Long = envLong
+		}
+
+		return nil
+	},
+	// Run the stats subcommand with statsCommand
+	Run: func(cmd *cobra.Command, args []string) {
+		// NOTE global input variables: {w, log, statsCommand}
+		exitCode, cmdError = statsCommand.Run(w, log)
+		// NOTE global output variables: {exitCode, cmdError}
+	},
 }
 
-// NewCLIStatsCommand defines the flags/arguments the CLI parser is supposed to understand
-func NewCLIStatsCommand(app *kingpin.Application) *CLIStatsCommand {
-	c := new(CLIStatsCommand)
-	c.cmd = app.Command("stats", "Prints some statistics about filesystem nodes based on a report.")
+func init() {
+	rootCmd.AddCommand(statsCmd)
 
-	c.Report = c.cmd.Arg("report", "report to consider").Required().String()
-	c.Long = c.cmd.Flag("long", "compute more features, but takes longer").Bool()
-	c.ConfigOutput = c.cmd.Flag("config", "only prints the configuration and terminates").Bool()
-	c.JSONOutput = c.cmd.Flag("json", "return output as JSON, not as plain text").Bool()
-
-	return c
-}
-
-// Validate renders all arguments into a StatsCommand or throws an error.
-// StatsCommand provides *all* arguments to run a 'stats' command.
-func (c *CLIStatsCommand) Validate() (*StatsCommand, error) {
-	// validity checks (check conditions that are not covered by kingpin)
-	if *c.Report == "" {
-		return nil, fmt.Errorf("One report must be specified")
-	}
-
-	// migrate CLIStatsCommand to StatsCommand
-	cmd := new(StatsCommand)
-	cmd.Report = *c.Report
-	cmd.ConfigOutput = *c.ConfigOutput
-	cmd.JSONOutput = *c.JSONOutput
-
-	// handle environment variables
-	envJSON, errJSON := EnvToBool("DUPFILES_JSON")
-	if errJSON == nil {
-		cmd.JSONOutput = envJSON
-	}
-	envLong, errLong := EnvToBool("DUPFILES_LONG")
-	if errLong == nil {
-		cmd.Long = envLong
-	}
-
-	return cmd, nil
-}
-
-// StatsCommand defines the CLI command parameters
-type StatsCommand struct {
-	Report       string `json:"report"`
-	Long         bool   `json:"long"`
-	ConfigOutput bool   `json:"config"`
-	JSONOutput   bool   `json:"json"`
-	Help         bool   `json:"help"`
+	statsCmd.PersistentFlags().StringVar(&argReport, `report`, "", `report to consider`)
+	statsCmd.MarkFlagRequired("report")
+	statsCmd.PersistentFlags().BoolVar(&argLong, `long`, false, `compute more features, but takes longer`)
 }
 
 // Run executes the CLI command stats on the given parameter set,
 // writes the result to Output w and errors/information messages to log.
 // It returns a triple (exit code, error)
-func (c *StatsCommand) Run(w Output, log Output) (int, error) {
+func (c *StatsCommand) Run(w, log Output) (int, error) {
 	if c.ConfigOutput {
 		// config output is printed in JSON independent of c.JSONOutput
 		b, err := json.Marshal(c)

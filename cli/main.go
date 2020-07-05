@@ -5,210 +5,89 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/meisterluk/dupfiles-go/internals"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-var app *kingpin.Application
-var report *CLIReportCommand
-var find *CLIFindCommand
-var stats *CLIStatsCommand
-var digest *CLIDigestCommand
-var diff *CLIDiffCommand
-var hashAlgos *CLIHashAlgosCommand
-var version *CLIVersionCommand
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:   "dupfiles",
+	Short: "Determine duplicate files and folders",
+	Long: `dupfiles-go is a program with a command-line interface. It allows users to
+• generate reports of a filesystem state
+• find the highest duplicate nodes in two or more reports
 
-const usageTemplate = `{{define "FormatCommand"}}\
-{{if .FlagSummary}} {{.FlagSummary}}{{end}}\
-{{range .Args}} {{if not .Required}}[{{end}}<{{.Name}}>{{if .Value|IsCumulative}}...{{end}}{{if not .Required}}]{{end}}{{end}}\
-{{end}}\
-
-
-{{define "FormatCommands"}}\
-{{range .FlattenedCommands}}\
-{{if not .Hidden}}\
-  ["{{.FullCommand}}", "{{if .Default}}*{{end}}{{template "FormatCommand" .}}",
-{{.Help|Wrap 4}}
-{{end}}\
-{{end}}\
-{{end}}\
-
-{{define "FormatUsage"}}\
-{{template "FormatCommand" .}}{{if .Commands}} <command> [<args> ...]{{end}}\
-{{end}}\
-
-{
-{{if .Context.SelectedCommand}}\
-  "usage": "{{.App.Name}} {{.Context.SelectedCommand}}{{template "FormatUsage" .Context.SelectedCommand}}",
-{{if .Context.SelectedCommand.Help}}\
-  "help": "{{.Context.SelectedCommand.Help}}",
-{{end}}\
-{{else}}\
-  "usage": "{{.App.Name}}{{template "FormatUsage" .App}}",
-  "help": "{{.App.Help}}",
-{{end}}\
-{{if .Context.Flags}}\
-  "flags": [
-{{range .Context.Flags}}{{if not .Hidden}}\
-    ["{{.|FormatFlag true}}", "{{.Help}}"],
-{{end}}{{end}}\
-  ],
-{{end}}\
-
-{{if .Context.Args}}\
-  "args": [
-{{range .Context.Args}}\
-    ["{{if not .Required}}[{{end}}<{{ .Name }}>{{if not .Required}}]{{end}}", "{{.Help}}"],
-{{end}}\
-  ]
-{{end}}\
-
-{{if .Context.SelectedCommand}}\
-{{if len .Context.SelectedCommand.Commands}}\
-  "subcommands": [
-  {{template "FormatCommands" .Context.SelectedCommand}}
-]
-{{end}}\
-{{else if .App.Commands}}\
-  "commands": [
-  {{template "FormatCommands" .App}}
-]
-  {{end}}\
+Thus, this implementation allows you to find duplicate nodes on your filesystem.
+This implementation is written in Go and implements the ‘dupfiles 1.0’ specification.
+`,
 }
-`
 
 func init() {
-	app = kingpin.New("dupfiles", "Determine duplicate files and folders.")
-	app.Version("1.0.0").Author("meisterluk")
-	app.HelpFlag.Short('h')
+	cobra.OnInitialize(initConfig)
 
-	// if --json, show help as JSON
-	if internals.Contains(os.Args[1:], "--json") {
-		app.UsageTemplate(usageTemplate)
-	} else {
-		app.UsageTemplate(kingpin.CompactUsageTemplate)
-	}
+	// TODO rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.test-cobra.yaml)")
+	rootCmd.PersistentFlags().BoolVar(&argConfigOutput, "config", false, "only prints the configuration and terminates")
+	rootCmd.PersistentFlags().BoolVar(&argJSONOutput, "json", false, "return output as JSON, not as plain text")
 
-	// initialize subcommand variables
-	report = NewCLIReportCommand(app)
-	find = NewCLIFindCommand(app)
-	stats = NewCLIStatsCommand(app)
-	digest = NewCLIDigestCommand(app)
-	diff = NewCLIDiffCommand(app)
-	hashAlgos = NewCLIHashAlgosCommand(app)
-	version = NewCLIVersionCommand(app)
+	// Cobra also supports local flags, which will only run
+	// when this action is called directly. TODO remove
+	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-// RunCLI executes the command line given in args.
-// It basically dispatches to a subcommand.
-// It writes the result to Output w and errors/information messages to log.
-// It returns a triple (exit code, error)
-func RunCLI(args []string, w Output, log Output) (int, bool, error) {
-	var exitCode int
-	var jsonOutput bool
-	var err error
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	/*if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := homedir.Dir()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 
-	// <profiling> TODO
-	/*f, err := os.Create("cpu.prof")
-	if err != nil {
-		w.Println(err)
-		return 200
+		// Search config in home directory with name ".test-cobra" (without extension).
+		viper.AddConfigPath(home)
+		viper.SetConfigName(".test-cobra")
+	}*/
+
+	viper.AutomaticEnv() // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()*/
-	// </profiling>
+}
 
-	subcommand, err := app.Parse(args)
-	if err != nil {
-		return 1, jsonOutput, err
-	}
+// Execute executes the command line given in $args.
+// It writes the result to Output $w and errors/information messages to $log.
+// It returns a triple (exit code, JSON output?, error)
+func Execute(args []string, wLocal Output, logLocal Output) (int, bool, error) {
+	// NOTE we (sadly) use global variables, because cobra does not provide
+	//      mechanisms to pass values acc. to my style of writing CLI applications
 
-	switch subcommand {
-	case report.cmd.FullCommand():
-		var reportSettings *ReportCommand
-		reportSettings, err = report.Validate()
-		if err != nil {
-			kingpin.FatalUsage(err.Error())
-		}
+	// NOTE global input variables: {w, log}
+	w = wLocal
+	log = logLocal
 
-		jsonOutput = reportSettings.JSONOutput
-		exitCode, err = reportSettings.Run(w, log)
-
-	case find.cmd.FullCommand():
-		var findSettings *FindCommand
-		findSettings, err = find.Validate()
-		if err != nil {
-			kingpin.FatalUsage(err.Error())
-		}
-
-		jsonOutput = findSettings.JSONOutput
-		exitCode, err = findSettings.Run(w, log)
-
-	case stats.cmd.FullCommand():
-		var statsSettings *StatsCommand
-		statsSettings, err = stats.Validate()
-		if err != nil {
-			kingpin.FatalUsage(err.Error())
-		}
-
-		jsonOutput = statsSettings.JSONOutput
-		exitCode, err = statsSettings.Run(w, log)
-
-	case digest.cmd.FullCommand():
-		var digestSettings *DigestCommand
-		digestSettings, err := digest.Validate()
-		if err != nil {
-			kingpin.FatalUsage(err.Error())
-		}
-
-		jsonOutput = digestSettings.JSONOutput
-		exitCode, err = digestSettings.Run(w, log)
-
-	case diff.cmd.FullCommand():
-		var diffSettings *DiffCommand
-		diffSettings, err := diff.Validate()
-		if err != nil {
-			kingpin.FatalUsage(err.Error())
-		}
-
-		jsonOutput = diffSettings.JSONOutput
-		exitCode, err = diffSettings.Run(w, log)
-
-	case hashAlgos.cmd.FullCommand():
-		var hashAlgosSettings *HashAlgosCommand
-		hashAlgosSettings, err := hashAlgos.Validate()
-		if err != nil {
-			kingpin.FatalUsage(err.Error())
-		}
-
-		jsonOutput = hashAlgosSettings.JSONOutput
-		exitCode, err = hashAlgosSettings.Run(w, log)
-
-	case version.cmd.FullCommand():
-		var versionSettings *VersionCommand
-		versionSettings, err := version.Validate()
-		if err != nil {
-			kingpin.FatalUsage(err.Error())
-		}
-
-		jsonOutput = versionSettings.JSONOutput
-		exitCode, err = versionSettings.Run(w, log)
-
-	default:
-		exitCode = 8
-		err = fmt.Errorf(`unknown subcommand '%s'`, subcommand)
+	rootCmd.SetArgs(args)
+	err := rootCmd.Execute()
+	if err == nil && cmdError != nil {
+		err = cmdError
 	}
 
-	return exitCode, jsonOutput, err
+	// NOTE global output variables: {exitCode, argJSONOutput}
+	return exitCode, argJSONOutput, err
 }
 
 func main() {
 	// this output stream will be filled with text or JSON (if --json) output
-	output := PlainOutput{device: os.Stdout}
+	output := PlainOutput{Device: os.Stdout}
 	// this output stream will be used for status messages
-	logOutput := PlainOutput{device: os.Stderr}
+	logOutput := PlainOutput{Device: os.Stderr}
 
-	exitcode, jsonOutput, err := RunCLI(os.Args[1:], &output, &logOutput)
+	exitcode, jsonOutput, err := Execute(os.Args[1:], &output, &logOutput)
 	// TODO verify that all input files are properly UTF-8 encoded ⇒ output if properly UTF-8 encoded
 
 	if err == nil {
