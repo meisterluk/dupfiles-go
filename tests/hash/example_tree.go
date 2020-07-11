@@ -15,16 +15,47 @@ root
       example.txt C1
       example2.txt C1
   pathological
-    A
-      a.txt C1
-      b.txt C1
-    B
-      folder
-        file.txt C1
-      file.txt C1
-    C
-      a.txt C0
-      b.txt C2
+    content
+      A
+        a.txt C1
+        b.txt C1
+      B
+        a.txt C1
+        b.txt C1
+        c.txt C1
+        d.txt C1
+      C
+        folder1
+          x.txt C1
+          y.txt C1
+        folder2
+          x.txt C3
+          y.txt C3
+      D
+        parent
+          child
+            x.txt C1
+      E
+        parent1
+          child
+            x.txt C1
+            y.txt C3
+        parent2
+          a.txt C3
+          b.txt C1
+    three
+      A
+        example
+          example C1
+        example2
+          example2 C1
+      B
+        folder
+          folder
+            a.txt C2
+      C
+        complete C0
+        com C4
 `
 
 var exampleContents map[string]string = map[string]string{
@@ -33,6 +64,8 @@ var exampleContents map[string]string = map[string]string{
 😊
 `,
 	`C2`: `a.txt`,
+	`C3`: `some content`,
+	`C4`: `plete`,
 }
 
 func createExampleTree(root string) error {
