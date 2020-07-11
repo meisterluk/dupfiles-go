@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
+
+	"github.com/meisterluk/dupfiles-go/internals"
 )
 
 type TestString func(exp *Expect, text string) (string, error)
@@ -21,6 +24,12 @@ var testStringFunctions map[string]TestString = map[string]TestString{
 			return `is JSON content`, nil
 		}
 		return `is JSON content`, fmt.Errorf(`expected JSON content, got '%s'`, text)
+	},
+	`isUTF8`: func(exp *Expect, text string) (string, error) {
+		if utf8.Valid([]byte(text)) {
+			return `is valid UTF8 content`, nil
+		}
+		return `is valid UTF8 content`, fmt.Errorf(`expected valid UTF8 content, got '%s'`, internals.ByteEncode(text))
 	},
 }
 

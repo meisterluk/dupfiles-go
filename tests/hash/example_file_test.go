@@ -1,10 +1,17 @@
-package main
+package tests
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestAbs(t *testing.T) {
-	got := Abs(-1)
+	got := math.Abs(-1)
 	if got != 1 {
-		t.Errorf("Abs(-1) = %d; want 1", got)
+		t.Errorf("Abs(-1) = %f; want 1", got)
 	}
+}
+
+func TestStructure(t *testing.T) {
+	createExampleTree(`/tmp/somewhere`)
 }

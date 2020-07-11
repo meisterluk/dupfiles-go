@@ -4,11 +4,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const exampleYAML = `
-executable: echo
-
+const testYAML = `
 expected:
-  - args: ['example', '--help']
+  - name: 'some version test'
+    args: ['version', '--help']
     env:
       KEY1: VALUE1
       KEY2: VALUE2
@@ -32,10 +31,11 @@ expected:
     exitcode: 0
 `
 
-const testYAML = `
+const exampleYAML = `
+executable: echo
+
 expected:
-  - name: 'some version test'
-    args: ['version', '--help']
+  - args: ['example', '--help']
     env:
       KEY1: VALUE1
       KEY2: VALUE2
