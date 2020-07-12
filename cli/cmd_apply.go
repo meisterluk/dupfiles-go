@@ -56,9 +56,11 @@ subdir {A} {B} {C}
 
 		// validity checks
 		if applyCommand.Action != "subdir" {
+			exitCode = 8
 			return fmt.Errorf("Only ‘subdir’ action is supported; expected --action='subdir'")
 		}
 		if applyCommand.Action == "subdir" && len(args) != 4 {
+			exitCode = 7
 			return fmt.Errorf(`subdir expected 3 arguments: {in-report} {out-report} {subdir}; got %d argument(s)`, len(args)-1)
 		}
 

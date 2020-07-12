@@ -58,6 +58,7 @@ TODO list equivalent nodes for the actual test/example tree
 	Args: func(cmd *cobra.Command, args []string) error {
 		// validity checks
 		if len(argReports) == 0 && len(args) == 0 {
+			exitCode = 7
 			return fmt.Errorf("Expected at least 1 report; 0 are given")
 		} else if len(argReports) > 0 && len(args) == 0 {
 			// ignore, argReports set properly

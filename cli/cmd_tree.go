@@ -39,15 +39,18 @@ to quickly create a Cobra application.`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		// consider report as positional argument
 		if len(args) > 1 {
+			exitCode = 7
 			return fmt.Errorf(`expected only one positional argument; got %s`, strings.Join(args, " "))
 		}
 		if argReport == "" && len(args) == 0 {
+			exitCode = 7
 			return fmt.Errorf(`positional argument "report file" required`)
 		} else if argReport != "" && len(args) == 0 {
 			// ignore, argReport is properly set
 		} else if argReport == "" && len(args) > 0 {
 			argReport = args[0]
 		} else if argReport != "" && len(args) > 0 {
+			exitCode = 7
 			return fmt.Errorf(`two report files given: "%s" and "%s"; expected only one`, argReport, args[0])
 		}
 

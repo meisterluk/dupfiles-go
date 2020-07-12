@@ -60,21 +60,26 @@ For example:
 	Args: func(cmd *cobra.Command, args []string) error {
 		// validity checks
 		if len(args) > 1 {
+			exitCode = 7
 			return fmt.Errorf(`only accepting one basenode; got "%s"`, strings.Join(args, " "))
 		}
 		if argBaseNode == "" && len(args) == 0 {
+			exitCode = 7
 			return fmt.Errorf("basenode as positional argument required")
 		} else if argBaseNode != "" && len(args) == 0 {
 			// ignore, argBaseNode is properly set
 		} else if argBaseNode == "" && len(args) > 0 {
 			argBaseNode = args[0]
 		} else if argBaseNode != "" && len(args) > 0 {
+			exitCode = 7
 			return fmt.Errorf(`only accepting one basenode; got "%s" and "%s"`, args[0], argBaseNode)
 		}
 		if argDFS && argBFS {
+			exitCode = 7
 			return fmt.Errorf("cannot accept --bfs and --dfs simultaneously")
 		}
 		if argThreeMode && argContentMode {
+			exitCode = 7
 			return fmt.Errorf("cannot accept --three-mode and --content-mode simultaneously")
 		}
 
@@ -136,6 +141,7 @@ For example:
 
 		// validity check 2
 		if digestCommand.Workers <= 0 {
+			exitCode = 8
 			return fmt.Errorf("expected --workers to be positive integer, is %d", digestCommand.Workers)
 		}
 

@@ -78,14 +78,17 @@ For example:
 		// validate Nodes
 		a := argPairItems
 		if len(a) == 0 {
+			exitCode = 7
 			return fmt.Errorf(`At least two [{filepath} {report}] pairs are required for comparison, found %d`, len(a))
 		} else if len(a)%2 != 0 {
+			exitCode = 7
 			return fmt.Errorf(`[{filepath} {report}] pairs required. Thus I expected an even number of arguments, got %d`, len(a))
 		}
 		for i := 0; i < len(a); i = i + 2 {
 			if a[i] == "" {
 				a[i] = "."
 			} else if a[i] == "" {
+				exitCode = 8
 				return fmt.Errorf(`empty report filepath for '%s' found; expected a valid filepath`, a[i])
 			}
 			for len(a[i]) > 0 && a[i][len(a[i])-1] == filepath.Separator {

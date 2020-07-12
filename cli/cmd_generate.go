@@ -75,9 +75,11 @@ Unless the report filepath is given (i.e. overwritten), the report file has file
 	Args: func(cmd *cobra.Command, args []string) error {
 		// validity checks
 		if argDFS && argBFS {
+			exitCode = 7
 			return fmt.Errorf("cannot accept --bfs and --dfs simultaneously")
 		}
 		if argThreeMode && argContentMode {
+			exitCode = 7
 			return fmt.Errorf("cannot accept --three-mode and --content-mode simultaneously")
 		}
 		if len(args) > 0 && argBaseNode == "" {
@@ -85,8 +87,10 @@ Unless the report filepath is given (i.e. overwritten), the report file has file
 		} else if len(args) == 0 && argBaseNode != "" {
 			// ignore, argBaseNode is set properly
 		} else if len(args) > 0 && argBaseNode != "" {
+			exitCode = 7
 			return fmt.Errorf(`cannot provide basenode as positional argument and via --basenode; remove --basenode`)
 		} else if len(args) == 0 && argBaseNode == "" {
+			exitCode = 7
 			return fmt.Errorf(`expected one positional argument {basenode}, got none`)
 		}
 
@@ -151,6 +155,7 @@ Unless the report filepath is given (i.e. overwritten), the report file has file
 			if nonSenseBaseNodeName.FindString(generateCommand.BaseNodeName) != "" {
 				abs, err := filepath.Abs(generateCommand.BaseNode)
 				if err != nil {
+					exitCode = 6
 					return fmt.Errorf(`failed to determine absolute path of '%s': %s`, generateCommand.BaseNode, err)
 				}
 				generateCommand.BaseNodeName = filepath.Base(abs)
@@ -169,6 +174,7 @@ Unless the report filepath is given (i.e. overwritten), the report file has file
 
 		// validity check 2
 		if generateCommand.Workers <= 0 {
+			exitCode = 8
 			return fmt.Errorf("expected --workers to be positive integer, is %d", generateCommand.Workers)
 		}
 
