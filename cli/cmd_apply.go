@@ -151,7 +151,7 @@ func (c *ApplyCommand) Run(w, log Output) (int, error) {
 				continue
 			}
 
-			err = destination.TailLine(line.HashValue, line.NodeType, line.FileSize, line.Path[len(subdir):])
+			err = destination.TailLine(line.HashValue, line.NodeType, line.Size, line.Path[len(subdir):])
 			if err != nil {
 				return 6, err
 			}

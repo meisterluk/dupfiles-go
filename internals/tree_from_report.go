@@ -74,7 +74,7 @@ func TreeFromReport(reportFile string) (*TreeNode, error) {
 		}
 		node.Children = make([]*TreeNode, 0)
 		node.Digest = hex.EncodeToString(line.HashValue)
-		node.Size = line.FileSize
+		node.Size = line.Size
 		node.Type = line.NodeType
 
 		add(root, node, parts)

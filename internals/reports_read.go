@@ -146,7 +146,7 @@ func (r *Report) Iterate() (ReportTailLine, ReportTailExtraInfo, error) {
 			if err != nil {
 				return tail, rtei, fmt.Errorf(`filesize is invalid: '%s'`, err)
 			}
-			tail.FileSize = uint64(fileSize)
+			tail.Size = uint64(fileSize)
 
 			tail.Path = string(groups[4])
 			tailLineRead = true

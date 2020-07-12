@@ -197,7 +197,7 @@ func (c *StatsCommand) Run(w, log Output) (int, error) {
 		}
 
 		// consider size
-		briefStats.AccumulatedSize += tail.FileSize
+		briefStats.AccumulatedSize += tail.Size
 		oldAccumulatedSize := briefStats.AccumulatedSize
 		if oldAccumulatedSize > briefStats.AccumulatedSize {
 			return 11, fmt.Errorf(`total-size overflowed from %d to %d`, oldAccumulatedSize, briefStats.AccumulatedSize)
@@ -207,11 +207,11 @@ func (c *StatsCommand) Run(w, log Output) (int, error) {
 			if tail.NodeType == 'D' {
 				continue
 			}
-			if briefStats.FilesOfMaxSize[i].Size > tail.FileSize {
+			if briefStats.FilesOfMaxSize[i].Size > tail.Size {
 				continue
 			}
 			tmp := briefStats.FilesOfMaxSize[i]
-			briefStats.FilesOfMaxSize[i].Size = tail.FileSize
+			briefStats.FilesOfMaxSize[i].Size = tail.Size
 			briefStats.FilesOfMaxSize[i].Path = tail.Path
 			for j := i + 1; j < 10; j++ {
 				tmp2 := briefStats.FilesOfMaxSize[j]

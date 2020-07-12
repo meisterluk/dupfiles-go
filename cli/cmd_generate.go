@@ -270,7 +270,7 @@ func (c *GenerateCommand) Run(w Output, log Output) (int, error) {
 	)
 
 	for entry := range entries {
-		err = rep.TailLine(entry.HashValue, entry.NodeType, entry.FileSize, entry.Path)
+		err = rep.TailLine(entry.HashValue, entry.NodeType, entry.Size, entry.Path)
 		if err != nil {
 			return 2, err
 		}

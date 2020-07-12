@@ -616,7 +616,7 @@ LOOP:
 				outputEntry <- ReportTailLine{
 					HashValue: fileData.HashValue,
 					NodeType:  fileData.Type,
-					FileSize:  fileData.Size,
+					Size:      fileData.Size,
 					Path:      fileData.Path,
 				}
 			} else {
@@ -631,7 +631,7 @@ LOOP:
 				outputEntry <- ReportTailLine{
 					HashValue: dirData.HashValue,
 					NodeType:  'D',
-					FileSize:  uint64(dirData.Size),
+					Size:      uint64(dirData.Size),
 					Path:      dirData.Path,
 				}
 			} else {

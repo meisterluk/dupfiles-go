@@ -20,7 +20,7 @@ type ReportHeadLine struct {
 type ReportTailLine struct {
 	HashValue []byte
 	NodeType  byte
-	FileSize  uint64
+	Size      uint64
 	Path      string
 }
 
