@@ -14,4 +14,5 @@ func TestAbs(t *testing.T) {
 
 func TestStructure(t *testing.T) {
 	createExampleTree(`/tmp/somewhere`)
+
 }
