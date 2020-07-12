@@ -5,24 +5,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/meisterluk/dupfiles-go/internals"
 	"github.com/spf13/cobra"
 )
 
 // TreeCommand defines the CLI command parameters
 type TreeCommand struct {
+	Report       string `json:"report"`
 	Indent       string `json:"indent"`
 	ConfigOutput bool   `json:"config"`
 	JSONOutput   bool   `json:"json"`
 	Help         bool   `json:"help"`
-}
-
-// TreeNode represents a node of the tree
-type TreeNode struct {
-	Digest   string      `json:"digest"`
-	Type     byte        `json:"type"`
-	Size     int         `json:"size"`
-	Basename string      `json:"name"`
-	Children []*TreeNode `json:"children"`
 }
 
 var treeCommand *TreeCommand
@@ -60,6 +53,7 @@ to quickly create a Cobra application.`,
 
 		// create global TreeCommand instance
 		treeCommand = new(TreeCommand)
+		treeCommand.Report = argReport
 		treeCommand.Indent = argIndent
 		treeCommand.ConfigOutput = argConfigOutput
 		treeCommand.JSONOutput = argJSONOutput
@@ -90,28 +84,32 @@ func init() {
 }
 
 // PrintTreeNode prints the tree established by TreeNode recursively to w
-func PrintTreeNode(w Output, template string, node *TreeNode, isLast []bool) {
+func PrintTreeNode(w Output, template string, node *internals.TreeNode, isLast []bool) {
 	prefix := ``
-	// Box drawing block symbols: ╴─│┌┐└┘├┤┬┴└
+	basename := node.Basename
+	if basename == "" {
+		basename = "."
+	}
 
+	// Box drawing block symbols: ╴─│┌┐└┘├┤┬┴└
 	for i, last := range isLast {
 		if i == len(isLast)-1 && last {
-			prefix += "└"
+			prefix += " └"
 		} else if i == len(isLast)-1 && !last {
-			prefix += "├"
+			prefix += " ├"
 		} else if last {
-			prefix += " "
+			prefix += "  "
 		} else if !last {
-			prefix += "│"
+			prefix += " │"
 		}
 	}
 	if len(node.Children) > 0 {
-		prefix += "┬"
+		prefix += "─┬"
 	} else {
-		prefix += "─"
+		prefix += "──"
 	}
 
-	w.Printfln(template, prefix, node.Basename, node.Type, node.Size, node.Digest)
+	w.Printfln(template, prefix, basename, node.Type, node.Size, node.Digest)
 	isLast = append(isLast, false)
 	for i, child := range node.Children {
 		isLast[len(isLast)-1] = (i == len(node.Children)-1)
@@ -121,10 +119,14 @@ func PrintTreeNode(w Output, template string, node *TreeNode, isLast []bool) {
 
 // PrintTreeNodeWithIndent prints the tree established by TreeNode recursively to w
 // using the $indent prefix string
-func PrintTreeNodeWithIndent(w Output, template string, node *TreeNode, depth int, indent string) {
+func PrintTreeNodeWithIndent(w Output, template string, node *internals.TreeNode, depth int, indent string) {
 	prefix := strings.Repeat(indent, depth)
+	basename := node.Basename
+	if basename == "" {
+		basename = "."
+	}
 
-	w.Printfln(template, prefix, node.Basename, node.Type, node.Size, node.Digest)
+	w.Printfln(template, prefix, basename, node.Type, node.Size, node.Digest)
 	for _, child := range node.Children {
 		PrintTreeNodeWithIndent(w, template, child, depth+1, indent)
 	}
@@ -144,39 +146,17 @@ func (c *TreeCommand) Run(w, log Output) (int, error) {
 		return 0, nil
 	}
 
-	// fill TreeNode with data
-	// TODO fill with actual data from report file
-	data := TreeNode{}
-	data.Basename = `example.file`
-	data.Digest = `a2f70a0015afbdea0d34a5eb550a7547`
-	data.Size = 42
-	data.Type = 'D'
-	data.Children = make([]*TreeNode, 0, 4)
-
-	d1 := TreeNode{
-		Basename: `ex`,
-		Digest:   `a2f70a0015afbdea0d34a5eb550a7547`,
-		Size:     12983,
-		Type:     'F',
+	// get tree from report file
+	data, err := internals.TreeFromReport(c.Report)
+	if err != nil {
+		return 1, err
 	}
-	data.Children = append(data.Children, &d1)
-	data.Children = append(data.Children, &d1)
-
-	d2 := TreeNode{
-		Basename: `ex2`,
-		Digest:   `a2f70a0015afbdea0d34a5eb550a7547`,
-		Size:     12943,
-		Type:     'F',
-	}
-	d2.Children = append(d2.Children, &d1)
-	data.Children = append(data.Children, &d2)
-	data.Children = append(data.Children, &d1)
 
 	// compute output
-	template := `%s %s  %b %d %s`
+	template := `%s %s  %c %d %s`
 	// template = "%s \x1b[97m\x1b[40m%s\x1b[0m\t\x1b[37m%b %d \x1b[34m%s\x1b[0m"
 	if c.JSONOutput {
-		jsonRepr, err := json.MarshalIndent(&data, "", "  ")
+		jsonRepr, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return 6, fmt.Errorf(resultJSONErrMsg, err)
 		}
@@ -184,9 +164,9 @@ func (c *TreeCommand) Run(w, log Output) (int, error) {
 	} else {
 		// TODO compute appropriate representation
 		if c.Indent == "" {
-			PrintTreeNode(w, template, &data, make([]bool, 0, 42))
+			PrintTreeNode(w, template, data, make([]bool, 0, 42))
 		} else {
-			PrintTreeNodeWithIndent(w, template, &data, 0, c.Indent)
+			PrintTreeNodeWithIndent(w, template, data, 0, c.Indent)
 		}
 	}
 

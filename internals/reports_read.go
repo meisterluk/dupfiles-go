@@ -38,7 +38,8 @@ func NewReportReader(filepath string) (*Report, error) {
 	return reportFile, nil
 }
 
-// Iterate reads and parses the next tail line in the file
+// Iterate reads and parses the next tail line in the file.
+// After the final line, error == io.EOF is returned.
 func (r *Report) Iterate() (ReportTailLine, ReportTailExtraInfo, error) {
 	rtei := ReportTailExtraInfo{0}
 	tail := ReportTailLine{}
