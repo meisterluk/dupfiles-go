@@ -11,7 +11,6 @@ import (
 // TreeCommand defines the CLI command parameters
 type TreeCommand struct {
 	Indent       string `json:"indent"`
-	Plain        bool   `json:"plain"`
 	ConfigOutput bool   `json:"config"`
 	JSONOutput   bool   `json:"json"`
 	Help         bool   `json:"help"`
@@ -28,7 +27,6 @@ type TreeNode struct {
 
 var treeCommand *TreeCommand
 var argIndent string
-var argPlain bool
 
 // treeCmd represents the tree command
 var treeCmd = &cobra.Command{
@@ -63,7 +61,6 @@ to quickly create a Cobra application.`,
 		// create global TreeCommand instance
 		treeCommand = new(TreeCommand)
 		treeCommand.Indent = argIndent
-		treeCommand.Plain = argPlain
 		treeCommand.ConfigOutput = argConfigOutput
 		treeCommand.JSONOutput = argJSONOutput
 		treeCommand.Help = false
@@ -90,7 +87,6 @@ func init() {
 	rootCmd.AddCommand(treeCmd)
 	treeCmd.PersistentFlags().StringVar(&argReport, `report`, "", `report to consider`)
 	treeCmd.PersistentFlags().StringVar(&argIndent, `indent`, "", `if non-empty, show one basename per line and indent to appropriate depth by repeating this string`)
-	treeCmd.PersistentFlags().BoolVar(&argPlain, `plain`, false, `if true, do not use ANSI escape sequences to represent colors`)
 }
 
 // PrintTreeNode prints the tree established by TreeNode recursively to w
@@ -176,13 +172,9 @@ func (c *TreeCommand) Run(w, log Output) (int, error) {
 	data.Children = append(data.Children, &d2)
 	data.Children = append(data.Children, &d1)
 
-	// TODO colorized output only works on linux, take a look at https://github.com/k0kubun/go-ansi
-	template := `%s %s  %b %d %s`
-	if !c.Plain {
-		template = "%s \x1b[97m\x1b[40m%s\x1b[0m\t\x1b[37m%b %d \x1b[34m%s\x1b[0m"
-	}
-
 	// compute output
+	template := `%s %s  %b %d %s`
+	// template = "%s \x1b[97m\x1b[40m%s\x1b[0m\t\x1b[37m%b %d \x1b[34m%s\x1b[0m"
 	if c.JSONOutput {
 		jsonRepr, err := json.MarshalIndent(&data, "", "  ")
 		if err != nil {
