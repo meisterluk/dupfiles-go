@@ -10,9 +10,11 @@ import (
 
 // TreeCommand defines the CLI command parameters
 type TreeCommand struct {
-	ConfigOutput bool `json:"config"`
-	JSONOutput   bool `json:"json"`
-	Help         bool `json:"help"`
+	Indent       string `json:"indent"`
+	Plain        bool   `json:"plain"`
+	ConfigOutput bool   `json:"config"`
+	JSONOutput   bool   `json:"json"`
+	Help         bool   `json:"help"`
 }
 
 // TreeNode represents a node of the tree
@@ -60,6 +62,8 @@ to quickly create a Cobra application.`,
 
 		// create global TreeCommand instance
 		treeCommand = new(TreeCommand)
+		treeCommand.Indent = argIndent
+		treeCommand.Plain = argPlain
 		treeCommand.ConfigOutput = argConfigOutput
 		treeCommand.JSONOutput = argJSONOutput
 		treeCommand.Help = false
@@ -89,7 +93,8 @@ func init() {
 	treeCmd.PersistentFlags().BoolVar(&argPlain, `plain`, false, `if true, do not use ANSI escape sequences to represent colors`)
 }
 
-func printTreeNode(w Output, template string, node *TreeNode, isLast []bool) {
+// PrintTreeNode prints the tree established by TreeNode recursively to w
+func PrintTreeNode(w Output, template string, node *TreeNode, isLast []bool) {
 	prefix := ``
 	// Box drawing block symbols: ╴─│┌┐└┘├┤┬┴└
 
@@ -114,7 +119,18 @@ func printTreeNode(w Output, template string, node *TreeNode, isLast []bool) {
 	isLast = append(isLast, false)
 	for i, child := range node.Children {
 		isLast[len(isLast)-1] = (i == len(node.Children)-1)
-		printTreeNode(w, template, child, isLast)
+		PrintTreeNode(w, template, child, isLast)
+	}
+}
+
+// PrintTreeNodeWithIndent prints the tree established by TreeNode recursively to w
+// using the $indent prefix string
+func PrintTreeNodeWithIndent(w Output, template string, node *TreeNode, depth int, indent string) {
+	prefix := strings.Repeat(indent, depth)
+
+	w.Printfln(template, prefix, node.Basename, node.Type, node.Size, node.Digest)
+	for _, child := range node.Children {
+		PrintTreeNodeWithIndent(w, template, child, depth+1, indent)
 	}
 }
 
@@ -160,9 +176,11 @@ func (c *TreeCommand) Run(w, log Output) (int, error) {
 	data.Children = append(data.Children, &d2)
 	data.Children = append(data.Children, &d1)
 
-	//template := `%s %s  %b %d %s`
 	// TODO colorized output only works on linux, take a look at https://github.com/k0kubun/go-ansi
-	template := "%s \x1b[97m\x1b[40m%s\x1b[0m\t\x1b[37m%b %d \x1b[34m%s\x1b[0m"
+	template := `%s %s  %b %d %s`
+	if !c.Plain {
+		template = "%s \x1b[97m\x1b[40m%s\x1b[0m\t\x1b[37m%b %d \x1b[34m%s\x1b[0m"
+	}
 
 	// compute output
 	if c.JSONOutput {
@@ -173,7 +191,7 @@ func (c *TreeCommand) Run(w, log Output) (int, error) {
 		w.Println(string(jsonRepr))
 	} else {
 		// TODO compute appropriate representation
-		printTreeNode(w, template, &data, make([]bool, 0, 42))
+		PrintTreeNode(w, template, &data, make([]bool, 0, 42))
 	}
 
 	return 0, nil
