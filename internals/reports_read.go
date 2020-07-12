@@ -159,6 +159,18 @@ func (r *Report) Iterate() (ReportTailLine, ReportTailExtraInfo, error) {
 	return tail, rtei, nil
 }
 
+// Seek to offset in file or return an error
+func (r *Report) Seek(offset uint64) error {
+	off, err := r.File.Seek(int64(offset), 0)
+	if err != nil {
+		return err
+	}
+	if off != int64(offset) {
+		return fmt.Errorf(`could not seek to %d`, offset)
+	}
+	return nil
+}
+
 // Close closes the report
 func (r *Report) Close() {
 	if r.File != os.Stdin && r.File != os.Stdout && r.File != os.Stderr {
