@@ -183,7 +183,11 @@ func (c *TreeCommand) Run(w, log Output) (int, error) {
 		w.Println(string(jsonRepr))
 	} else {
 		// TODO compute appropriate representation
-		PrintTreeNode(w, template, &data, make([]bool, 0, 42))
+		if c.Indent == "" {
+			PrintTreeNode(w, template, &data, make([]bool, 0, 42))
+		} else {
+			PrintTreeNodeWithIndent(w, template, &data, 0, c.Indent)
+		}
 	}
 
 	return 0, nil
