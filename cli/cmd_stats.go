@@ -83,6 +83,20 @@ For example:
 	// It EITHER succeeds, fill statsCommand appropriately and returns nil.
 	// OR returns an error instance and statsCommand is incomplete.
 	Args: func(cmd *cobra.Command, args []string) error {
+		// consider report as positional argument
+		if len(args) > 1 {
+			return fmt.Errorf(`taking only one positional argument "report file"`)
+		}
+		if argReport == "" && len(args) == 0 {
+			return fmt.Errorf(`requires report file as positional argument`)
+		} else if argReport != "" && len(args) == 0 {
+			// ignore, argReport is properly set
+		} else if argReport == "" && len(args) > 0 {
+			argReport = args[0]
+		} else if argReport != "" && len(args) > 0 {
+			return fmt.Errorf(`two report files supplied: "%s" and "%s"; expected only one`, argReport, args[0])
+		}
+
 		// create global StatsCommand instance
 		statsCommand = new(StatsCommand)
 		statsCommand.Report = argReport

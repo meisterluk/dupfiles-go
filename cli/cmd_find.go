@@ -57,8 +57,16 @@ TODO list equivalent nodes for the actual test/example tree
 	// OR returns an error instance and findCommand is incomplete.
 	Args: func(cmd *cobra.Command, args []string) error {
 		// validity checks
-		if len(argReports) == 0 {
+		if len(argReports) == 0 && len(args) == 0 {
 			return fmt.Errorf("Expected at least 1 report; 0 are given")
+		} else if len(argReports) > 0 && len(args) == 0 {
+			// ignore, argReports set properly
+		} else if len(argReports) == 0 && len(args) > 0 {
+			argReports = args
+		} else if len(argReports) > 0 && len(args) > 0 {
+			for _, arg := range args {
+				argReports = append(argReports, arg)
+			}
 		}
 
 		// create global FindCommand instance

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/meisterluk/dupfiles-go/internals"
 	"github.com/spf13/cobra"
@@ -58,8 +59,17 @@ For example:
 	// OR returns an error instance and digestCommand is incomplete.
 	Args: func(cmd *cobra.Command, args []string) error {
 		// validity checks
-		if argBaseNode == "" {
-			return fmt.Errorf("basenode must not be empty")
+		if len(args) > 1 {
+			return fmt.Errorf(`only accepting one basenode; got "%s"`, strings.Join(args, " "))
+		}
+		if argBaseNode == "" && len(args) == 0 {
+			return fmt.Errorf("basenode as positional argument required")
+		} else if argBaseNode != "" && len(args) == 0 {
+			// ignore, argBaseNode is properly set
+		} else if argBaseNode == "" && len(args) > 0 {
+			argBaseNode = args[0]
+		} else if argBaseNode != "" && len(args) > 0 {
+			return fmt.Errorf(`only accepting one basenode; got "%s" and "%s"`, args[0], argBaseNode)
 		}
 		if argDFS && argBFS {
 			return fmt.Errorf("cannot accept --bfs and --dfs simultaneously")

@@ -63,6 +63,11 @@ For example:
 	// It EITHER succeeds, fill diffCommand appropriately and returns nil.
 	// OR returns an error instance and diffCommand is incomplete.
 	Args: func(cmd *cobra.Command, args []string) error {
+		// consider positional arguments as argPairItems
+		for _, arg := range args {
+			argPairItems = append(argPairItems, arg)
+		}
+
 		// create global DiffCommand instance
 		diffCommand = new(DiffCommand)
 		diffCommand.Nodes = make([]NodePathPair, 0, 8)

@@ -74,14 +74,20 @@ Unless the report filepath is given (i.e. overwritten), the report file has file
 	// OR returns an error instance and generateCommand is incomplete.
 	Args: func(cmd *cobra.Command, args []string) error {
 		// validity checks
-		if argBaseNode == "" {
-			return fmt.Errorf("basenode must not be empty")
-		}
 		if argDFS && argBFS {
 			return fmt.Errorf("cannot accept --bfs and --dfs simultaneously")
 		}
 		if argThreeMode && argContentMode {
 			return fmt.Errorf("cannot accept --three-mode and --content-mode simultaneously")
+		}
+		if len(args) > 0 && argBaseNode == "" {
+			argBaseNode = args[0]
+		} else if len(args) == 0 && argBaseNode != "" {
+			// ignore, argBaseNode is set properly
+		} else if len(args) > 0 && argBaseNode != "" {
+			return fmt.Errorf(`cannot provide basenode as positional argument and via --basenode; remove --basenode`)
+		} else if len(args) == 0 && argBaseNode == "" {
+			return fmt.Errorf(`expected one positional argument {basenode}, got none`)
 		}
 
 		// create global GenerateCommand instance

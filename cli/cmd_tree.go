@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -24,6 +25,8 @@ type TreeNode struct {
 }
 
 var treeCommand *TreeCommand
+var argIndent string
+var argPlain bool
 
 // treeCmd represents the tree command
 var treeCmd = &cobra.Command{
@@ -41,6 +44,20 @@ to quickly create a Cobra application.`,
 	// It EITHER succeeds, fill treeCommand appropriately and returns nil.
 	// OR returns an error instance and treeCommand is incomplete.
 	Args: func(cmd *cobra.Command, args []string) error {
+		// consider report as positional argument
+		if len(args) > 1 {
+			return fmt.Errorf(`expected only one positional argument; got %s`, strings.Join(args, " "))
+		}
+		if argReport == "" && len(args) == 0 {
+			return fmt.Errorf(`positional argument "report file" required`)
+		} else if argReport != "" && len(args) == 0 {
+			// ignore, argReport is properly set
+		} else if argReport == "" && len(args) > 0 {
+			argReport = args[0]
+		} else if argReport != "" && len(args) > 0 {
+			return fmt.Errorf(`two report files given: "%s" and "%s"; expected only one`, argReport, args[0])
+		}
+
 		// create global TreeCommand instance
 		treeCommand = new(TreeCommand)
 		treeCommand.ConfigOutput = argConfigOutput
@@ -67,7 +84,9 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(treeCmd)
-	// TODO introduce --plain (i.e. non-ANSI-colored) output
+	treeCmd.PersistentFlags().StringVar(&argReport, `report`, "", `report to consider`)
+	treeCmd.PersistentFlags().StringVar(&argIndent, `indent`, "", `if non-empty, show one basename per line and indent to appropriate depth by repeating this string`)
+	treeCmd.PersistentFlags().BoolVar(&argPlain, `plain`, false, `if true, do not use ANSI escape sequences to represent colors`)
 }
 
 func printTreeNode(w Output, template string, node *TreeNode, pos []int8) {
