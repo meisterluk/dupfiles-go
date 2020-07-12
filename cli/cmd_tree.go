@@ -89,49 +89,32 @@ func init() {
 	treeCmd.PersistentFlags().BoolVar(&argPlain, `plain`, false, `if true, do not use ANSI escape sequences to represent colors`)
 }
 
-func printTreeNode(w Output, template string, node *TreeNode, pos []int8) {
-	// NOTE pos[i] == -1 ⇒ $node is first child
-	//      pos[i] == 0 ⇒ $node is some child in the middle
-	//      pos[i] == 1 ⇒ $node is last child
-
-	prefix := `  `
+func printTreeNode(w Output, template string, node *TreeNode, isLast []bool) {
+	prefix := ``
 	// Box drawing block symbols: ╴─│┌┐└┘├┤┬┴└
 
-	if len(pos) == 0 {
-		prefix = ` ─`
-		//prefix = `┌`
-	} else {
-		for _, thisPos := range pos[0 : len(pos)-1] {
-			if thisPos == 1 {
-				prefix += `  `
-			} else {
-				prefix += ` │`
-			}
-		}
-		switch pos[len(pos)-1] {
-		case -1:
-			if len(node.Children) > 0 {
-				prefix += `└┬`
-			} else {
-				prefix += `└─`
-			}
-		case 0:
-			prefix += ` ├`
-		case 1:
-			prefix += ` └`
+	for i, last := range isLast {
+		if i == len(isLast)-1 && last {
+			prefix += "└"
+		} else if i == len(isLast)-1 && !last {
+			prefix += "├"
+		} else if last {
+			prefix += " "
+		} else if !last {
+			prefix += "│"
 		}
 	}
+	if len(node.Children) > 0 {
+		prefix += "┬"
+	} else {
+		prefix += "─"
+	}
+
 	w.Printfln(template, prefix, node.Basename, node.Type, node.Size, node.Digest)
-	pos = append(pos, 0)
+	isLast = append(isLast, false)
 	for i, child := range node.Children {
-		childPos := int8(0)
-		if i == 0 {
-			childPos = -1
-		} else if i == len(node.Children)-1 {
-			childPos = 1
-		}
-		pos[len(pos)-1] = childPos
-		printTreeNode(w, template, child, pos)
+		isLast[len(isLast)-1] = (i == len(node.Children)-1)
+		printTreeNode(w, template, child, isLast)
 	}
 }
 
@@ -179,7 +162,7 @@ func (c *TreeCommand) Run(w, log Output) (int, error) {
 
 	//template := `%s %s  %b %d %s`
 	// TODO colorized output only works on linux, take a look at https://github.com/k0kubun/go-ansi
-	template := "%s \x1b[97m\x1b[40m%s\x1b[0m  \x1b[37m%b %d \x1b[34m%s\x1b[0m"
+	template := "%s \x1b[97m\x1b[40m%s\x1b[0m\t\x1b[37m%b %d \x1b[34m%s\x1b[0m"
 
 	// compute output
 	if c.JSONOutput {
@@ -190,7 +173,7 @@ func (c *TreeCommand) Run(w, log Output) (int, error) {
 		w.Println(string(jsonRepr))
 	} else {
 		// TODO compute appropriate representation
-		printTreeNode(w, template, &data, make([]int8, 0, 42))
+		printTreeNode(w, template, &data, make([]bool, 0, 42))
 	}
 
 	return 0, nil
