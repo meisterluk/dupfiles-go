@@ -70,12 +70,14 @@ func HashNode(hashAlgorithm HashAlgo, threeMode bool, basePath string, data File
 	// TODO does it make sense that basePath and data.Path is provided. We mostly need their joined version, right?
 
 	addToHash := func(nodeType byte, path, content string) {
-		// nodeType
-		hash.ReadBytes([]byte{nodeType})
+		if threeMode {
+			// nodetype
+			hash.ReadBytes([]byte{nodeType})
 
-		// path
-		basename := filepath.Base(path)
-		hash.ReadBytes([]byte(basename))
+			// basename
+			basename := filepath.Base(path)
+			hash.ReadBytes([]byte(basename))
+		}
 
 		// content
 		if content != "" {
@@ -103,6 +105,7 @@ func HashNode(hashAlgorithm HashAlgo, threeMode bool, basePath string, data File
 		if err != nil {
 			return hash.Hash()
 		}
+
 		addToHash(data.Type, data.Path, `link to `)
 		hash.ReadBytes([]byte(target))
 		return hash.Hash()
