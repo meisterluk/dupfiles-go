@@ -98,7 +98,7 @@ func createExampleTree(root string) error {
 
 		// file or folder?
 		nonEmptyStrings := make([]string, 0, 6)
-		for _, s := range strings.Split(line[i:len(line)], ` `) {
+		for _, s := range strings.Split(line[i:], ` `) {
 			if strings.TrimSpace(s) == "" {
 				continue
 			}
