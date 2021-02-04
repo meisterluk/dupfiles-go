@@ -18,7 +18,6 @@ type GenerateCommand struct {
 	BaseNodeName         string   `json:"basenode-name"`
 	Overwrite            bool     `json:"overwrite"`
 	Output               string   `json:"output"`
-	Continue             bool     `json:"continue"`
 	BFS                  bool     `json:"bfs"`
 	DFS                  bool     `json:"dfs"`
 	IgnorePermErrors     bool     `json:"ignore-perm-errors"`
