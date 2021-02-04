@@ -21,7 +21,7 @@ func NewSHA1() *SHA1 {
 
 // Hash returns the hash state in a Hash instance
 func (c *SHA1) Hash() Hash {
-	hash := make(Hash, 4)
+	hash := make(Hash, 20)
 	copy(hash[:], c.h.Sum([]byte{}))
 	return hash
 }

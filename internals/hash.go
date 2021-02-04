@@ -66,8 +66,8 @@ const (
 	HashSHA512 HashAlgo = iota
 	// HashSHA3_512 → cryptographic hash function, 512 bits output
 	HashSHA3_512 HashAlgo = iota
-	// HashSHAKE256_64 → cryptographic hash function, 128 bits output
-	HashSHAKE256_64 HashAlgo = iota
+	// HashSHAKE256_128 → cryptographic hash function, 128 bits output
+	HashSHAKE256_128 HashAlgo = iota
 )
 
 // CountHashAlgos returns the total number of registered hash algorithms
@@ -104,7 +104,7 @@ func (h HashAlgo) Instance() HashAlgorithm {
 		return NewSHA512()
 	case HashSHA3_512:
 		return NewSHA3_512()
-	case HashSHAKE256_64:
+	case HashSHAKE256_128:
 		return NewSHAKE256_128()
 	}
 	return HashAlgos{}.Default().Instance()
