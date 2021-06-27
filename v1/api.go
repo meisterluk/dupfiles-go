@@ -6,14 +6,14 @@ import (
 	"github.com/meisterluk/dupfiles-go/internals"
 )
 
-const VERSION_MAJOR = 1
-const VERSION_MINOR = 0
-const VERSION_PATCH = 0
-const SPEC_MAJOR = 1
-const SPEC_MINOR = 0
-const SPEC_PATCH = 0
-const RELEASE_DATE = "2020-04-29"
-const LICENSE = `BSD 3-clause`
+const VERSION_MAJOR = internals.VERSION_MAJOR
+const VERSION_MINOR = internals.VERSION_MINOR
+const VERSION_PATCH = internals.VERSION_PATCH
+const SPEC_MAJOR = internals.SPEC_MAJOR
+const SPEC_MINOR = internals.SPEC_MINOR
+const SPEC_PATCH = internals.SPEC_PATCH
+const RELEASE_DATE = internals.RELEASE_DATE
+const LICENSE = internals.LICENSE
 
 type Report = internals.Report
 

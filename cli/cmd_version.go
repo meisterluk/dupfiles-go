@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/meisterluk/dupfiles-go/internals"
-	v1 "github.com/meisterluk/dupfiles-go/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -116,10 +115,10 @@ func (c *VersionCommand) Run(w, log Output) (int, error) {
 
 	// fill VersionJSONResult with data
 	data := VersionJSONResult{}
-	data.Version = fmt.Sprintf("%d.%d.%d", v1.VERSION_MAJOR, v1.VERSION_MINOR, v1.VERSION_PATCH)
-	data.Spec = fmt.Sprintf("%d.%d.%d", v1.SPEC_MAJOR, v1.SPEC_MINOR, v1.SPEC_PATCH)
-	data.ReleaseDate = v1.RELEASE_DATE
-	data.License = v1.LICENSE
+	data.Version = fmt.Sprintf("%d.%d.%d", internals.VERSION_MAJOR, internals.VERSION_MINOR, internals.VERSION_PATCH)
+	data.Spec = fmt.Sprintf("%d.%d.%d", internals.SPEC_MAJOR, internals.SPEC_MINOR, internals.SPEC_PATCH)
+	data.ReleaseDate = internals.RELEASE_DATE
+	data.License = internals.LICENSE
 	data.Author = `meisterluk`
 	data.Feedback = `admin@lukas-prokop.at`
 	data.Bugs = `https://github.com/meisterluk/dupfiles-go/issues/`
