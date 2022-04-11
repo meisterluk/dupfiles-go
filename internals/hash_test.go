@@ -3,7 +3,6 @@ package internals
 import (
 	"bytes"
 	"encoding/hex"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -44,7 +43,7 @@ func TestRequiredHashAlgos(t *testing.T) {
 
 func TestMD5sumCompatibility(t *testing.T) {
 	// create temporary file
-	fd, err := ioutil.TempFile("", "dupfiles-compat-test")
+	fd, err := os.CreateTemp("", "dupfiles-compat-test")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -168,6 +168,19 @@ func DetermineDepth(path string, sep byte) uint16 {
 	return uint16(strings.Count(path, string(sep)))
 }
 
+// RemovePathPrefix removes the provided prefix from a path.
+// For example let sep be '/', then `a/b` (or `a/b/`) and `a/` returns (`b`, true).
+// Let sep be '/', then `pre/x` and `diff/` returns (``, false).
+// NOTE use it only on data in report files
+func RemovePathPrefix(path string, prefix string, sep byte) (string, bool) {
+	if strings.HasPrefix(path, prefix+string(sep)) {
+		return path[len(prefix)+1:], true
+	} else if strings.HasPrefix(path, prefix+string(sep)) {
+		return path[len(prefix):], true
+	}
+	return ``, false
+}
+
 // Dir returns the directory component of a given filepath.
 // NOTE use it only on data in report files
 func Dir(path string, sep byte) string {
@@ -191,7 +204,7 @@ func Base(path string, sep byte) string {
 	if index == 0 {
 		return path
 	}
-	return path[index+1 : len(path)]
+	return path[index+1:]
 }
 
 // PathSplit takes a filesystem path and splits it into individual components

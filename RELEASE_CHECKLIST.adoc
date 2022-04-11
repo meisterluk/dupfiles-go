@@ -17,6 +17,32 @@ Code quality
 • All functions and structs have appropriate visibility (first letter is lowercase/uppercase)
 • Run “report” and “find” after “go build -race …” to catch trivial concurrency bugs
 
+Datatype sizes
+--------------
+
+The following sizes must be supported:
+
+|====
+|filesize
+|i64
+
+|depth
+|u32
+
+|#files
+|u32
+
+|#nodes
+|u32
+
+|#dir
+|u32
+
+|#reportfiles
+|≤16
+|====
+
+
 Concurrency checks
 ------------------
 

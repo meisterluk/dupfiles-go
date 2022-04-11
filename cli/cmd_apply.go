@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -100,7 +99,7 @@ func (c *ApplyCommand) Run(w, log Output) (int, error) {
 
 		// if src == dst, use a temporary directory
 		if src == dst {
-			tmpFile, err := ioutil.TempFile(os.TempDir(), "dupfiles-")
+			tmpFile, err := os.CreateTemp(os.TempDir(), "dupfiles-")
 			if err != nil {
 				return 6, err
 			}

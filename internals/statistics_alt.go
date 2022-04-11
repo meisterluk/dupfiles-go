@@ -2,7 +2,6 @@ package internals
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -85,7 +84,7 @@ func DoAnalysis(data *Analysis, depth uint64, baseNode string, ignorePermErrors 
 			data.MaxDepth = depth
 		}
 
-		entries, err := ioutil.ReadDir(baseNode)
+		entries, err := os.ReadDir(baseNode)
 		if err != nil {
 			return err
 		}

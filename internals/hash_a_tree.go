@@ -2,7 +2,6 @@ package internals
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -138,7 +137,7 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 	if node.IsDir() {
 		fullPath := filepath.Join(params.basePath, nodePath)
 		numEntries := 0
-		entries, err := ioutil.ReadDir(fullPath)
+		entries, err := os.ReadDir(fullPath)
 		if err != nil && !(params.ignorePermErrors && IsPermissionError(err)) {
 			return true, err
 		}
@@ -160,7 +159,11 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 				}
 			}
 
-			countNode, err := WalkDFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			info, err := entry.Info()
+			if err != nil {
+				return true, err
+			}
+			countNode, err := WalkDFS(filepath.Join(nodePath, entry.Name()), info, params)
 			if err != nil {
 				return true, err
 			}
@@ -186,7 +189,11 @@ func WalkDFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 				}
 			}
 
-			countNode, err := WalkDFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			info, err := entry.Info()
+			if err != nil {
+				return true, err
+			}
+			countNode, err := WalkDFS(filepath.Join(nodePath, entry.Name()), info, params)
 			if err != nil {
 				return true, err
 			}
@@ -243,7 +250,7 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 	if node.IsDir() {
 		fullPath := filepath.Join(params.basePath, nodePath)
 		numEntries := 0
-		entries, err := ioutil.ReadDir(fullPath)
+		entries, err := os.ReadDir(fullPath)
 		if err != nil && !(params.ignorePermErrors && IsPermissionError(err)) {
 			return true, err
 		}
@@ -265,7 +272,11 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 				}
 			}
 
-			countNode, err := WalkBFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			info, err := entry.Info()
+			if err != nil {
+				return true, err
+			}
+			countNode, err := WalkBFS(filepath.Join(nodePath, entry.Name()), info, params)
 			if err != nil {
 				return true, err
 			}
@@ -291,7 +302,11 @@ func WalkBFS(nodePath string, node os.FileInfo, params *WalkParameters) (bool, e
 				}
 			}
 
-			countNode, err := WalkBFS(filepath.Join(nodePath, entry.Name()), entry, params)
+			info, err := entry.Info()
+			if err != nil {
+				return true, err
+			}
+			countNode, err := WalkBFS(filepath.Join(nodePath, entry.Name()), info, params)
 			if err != nil {
 				return true, err
 			}

@@ -11,7 +11,6 @@ import (
 	"hash/crc32"
 	"hash/crc64"
 	"hash/fnv"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -180,7 +179,7 @@ func digestOfNonDir(path string, hashAlgo string, threeMode bool) (string, error
 	case mode.IsDir():
 		return "", fmt.Errorf(`you are not supposed to call digestOfNonDir with a directory`)
 	default:
-		bytes, err := ioutil.ReadFile(path)
+		bytes, err := os.ReadFile(path)
 		if err != nil {
 			return "", err
 		}
@@ -225,7 +224,7 @@ func digestOfNonDir(path string, hashAlgo string, threeMode bool) (string, error
 }
 
 func digestOfDir(path string, hashAlgo string, threeMode bool) (string, error) {
-	fis, err := ioutil.ReadDir(path)
+	fis, err := os.ReadDir(path)
 	if err != nil {
 		return "", err
 	}
